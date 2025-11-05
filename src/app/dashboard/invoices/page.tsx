@@ -1,7 +1,8 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
+// UPDATED: Import useSearchParams and useRouter
+import { useRouter, useSearchParams } from "next/navigation"
 import {
   Card,
   CardContent,
@@ -11,7 +12,7 @@ import {
 } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Plus, Search, Download, Eye, X, Check } from "lucide-react" // Removed DollarSign
+import { Plus, Search, Download, Eye, X, Check } from "lucide-react" 
 import DashboardLayout from "@/components/dashboard-layout"
 
 interface InvoiceItem {
@@ -31,6 +32,26 @@ interface Invoice {
   status: "draft" | "sent" | "paid" | "overdue"
   notes: string
 }
+
+// Interface for JobCard data coming from localStorage
+interface JobCardData {
+  id: string
+  bookingId: string
+  customer: string
+  notes: string
+  spareParts: {
+    name: string
+    quantity: number
+    price: number
+    taxPercent: number // We'll ignore tax for simplicity here, but it could be added
+  }[]
+  services: {
+    description: string
+    cost: number
+    taxPercent: number // We'll ignore tax for simplicity here
+  }[]
+}
+
 
 const initialInvoices: Invoice[] = [
   {
@@ -80,8 +101,19 @@ const initialInvoices: Invoice[] = [
   },
 ]
 
-export default function InvoicesPage() {
+// UPDATED: Wrap component in a Suspense boundary (in layout) or use this pattern
+// This is necessary because useSearchParams is a Client Component hook
+// We'll wrap the main component logic in a child component
+export default function InvoicesPageWrapper() {
+  // If your app uses Suspense, you can wrap this page in a <Suspense> component
+  // in your layout. For this to work without modifying layout, we create a child component.
+  return <InvoicesPage />
+}
+
+function InvoicesPage() {
   const router = useRouter()
+  const searchParams = useSearchParams() // Get URL search params
+
   const [userRole, setUserRole] = useState<"admin" | "workshop" | null>(null)
   const [mounted, setMounted] = useState(false)
   const [invoices, setInvoices] = useState<Invoice[]>(initialInvoices)
@@ -107,9 +139,85 @@ export default function InvoicesPage() {
     const role = localStorage.getItem("userRole") as "admin" | "workshop" | null
     if (!role || role !== "workshop") {
       router.push("/dashboard")
+      return
     }
     setUserRole(role)
-  }, [router])
+
+    // UPDATED: Load invoices from localStorage
+    try {
+      const savedInvoices = localStorage.getItem("allInvoices")
+      if (savedInvoices) {
+        setInvoices(JSON.parse(savedInvoices))
+      } else {
+        setInvoices(initialInvoices)
+      }
+    } catch (error) {
+      console.error("Failed to load invoices", error)
+      setInvoices(initialInvoices)
+    }
+
+
+    // UPDATED: Check for jobCardId from URL
+    const jobCardId = searchParams.get("jobCardId")
+    if (jobCardId) {
+      const data = localStorage.getItem("jobCardData")
+      if (data) {
+        try {
+          const jobCard: JobCardData = JSON.parse(data)
+          
+          // Check if the loaded data matches the jobCardId from URL
+          // The jobCard.id from the previous page is `JC${bookingId}`
+          // The jobCardId param we sent was `jobCard.bookingId`
+          if (jobCard.bookingId === jobCardId) {
+            
+            // Convert Job Card items to Invoice items
+            const newItems: InvoiceItem[] = [
+              ...jobCard.spareParts.map(p => ({
+                description: p.name,
+                quantity: p.quantity,
+                unitPrice: p.price,
+              })),
+              ...jobCard.services.map(s => ({
+                description: s.description,
+                quantity: 1,
+                unitPrice: s.cost,
+              })),
+            ]
+
+            const totalAmount = newItems.reduce(
+              (sum, item) => sum + item.quantity * item.unitPrice,
+              0,
+            )
+
+            // Pre-populate the form
+            setFormData({
+              id: `INV-2024-${String(invoices.length + 1).padStart(3, "0")}`,
+              jobCardId: jobCard.id, // Use the Job Card's ID (e.g., JCBOOK001)
+              customer: jobCard.customer,
+              amount: totalAmount,
+              items: newItems,
+              date: new Date().toISOString().split("T")[0],
+              dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)
+                .toISOString()
+                .split("T")[0],
+              status: "draft",
+              notes: jobCard.notes || "Thank you for your business!",
+            })
+
+            setShowForm(true) // Show the form
+            localStorage.removeItem("jobCardData") // Clean up localStorage
+
+            // Clean up URL query param
+            router.replace("/dashboard/invoices", undefined)
+          }
+        } catch (error) {
+          console.error("Failed to parse job card data", error)
+          localStorage.removeItem("jobCardData")
+        }
+      }
+    }
+
+  }, [router, searchParams]) // Add searchParams dependency
 
   const filteredInvoices = invoices.filter(
     (invoice) =>
@@ -141,6 +249,7 @@ export default function InvoicesPage() {
     setShowForm(true)
   }
 
+  // UPDATED: handleSave now updates localStorage
   const handleSave = () => {
     if (
       !formData.customer ||
@@ -157,21 +266,23 @@ export default function InvoicesPage() {
     )
     const updatedFormData = { ...formData, amount: total }
 
+    let newInvoices: Invoice[] = []
     if (editingId) {
-      setInvoices(
-        invoices.map((i) => (i.id === editingId ? updatedFormData : i)),
-      )
+      newInvoices = invoices.map((i) => (i.id === editingId ? updatedFormData : i))
     } else {
-      setInvoices([...invoices, updatedFormData])
+      newInvoices = [...invoices, updatedFormData]
     }
 
+    setInvoices(newInvoices)
+    localStorage.setItem("allInvoices", JSON.stringify(newInvoices))
     setShowForm(false)
   }
 
+  // UPDATED: handleStatusChange now updates localStorage
   const handleStatusChange = (id: string, newStatus: Invoice["status"]) => {
-    setInvoices(
-      invoices.map((i) => (i.id === id ? { ...i, status: newStatus } : i)),
-    )
+    const newInvoices = invoices.map((i) => (i.id === id ? { ...i, status: newStatus } : i))
+    setInvoices(newInvoices)
+    localStorage.setItem("allInvoices", JSON.stringify(newInvoices))
   }
 
   const handleAddItem = () => {

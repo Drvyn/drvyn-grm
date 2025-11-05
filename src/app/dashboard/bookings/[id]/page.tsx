@@ -32,7 +32,43 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 
-// Updated Interface for Spare Parts
+// --- Interfaces ---
+
+// This interface is from the bookings/page.tsx
+interface BookingFormData {
+  id: string
+  customerType: string
+  customerName: string
+  phone: string
+  email: string
+  address: string
+  taxNumber: string
+  drivingLicenseNumber: string
+  drivingLicenseExpiry?: Date
+  businessType: string
+  subType: string
+  carNumber: string
+  makeAndModel: string
+  fuelType: string
+  transmissionType: string
+  engineNumber: string
+  vinNumber: string
+  variant: string
+  makeYear: string
+  color: string
+  runningPerDay: string
+  insuranceDetails: string
+  serviceAdvisor: string
+  bookingType: string
+  department: string
+  customerRemark: string
+  odometer: string
+  fuelIndicator: number
+  status: "pending" | "confirmed" | "in-progress" | "completed" | "cancelled"
+  date?: string
+  time?: string
+}
+
 interface SparePartItem {
   id: string
   name: string
@@ -41,7 +77,6 @@ interface SparePartItem {
   taxPercent: number
 }
 
-// Updated Interface for Services (f.k.a. Labor)
 interface ServiceItem {
   id: string
   description: string
@@ -60,10 +95,12 @@ interface JobCard {
   date: string
   time: string
   assignedMechanic: string
-  spareParts: SparePartItem[] // Updated
-  services: ServiceItem[] // Updated
+  spareParts: SparePartItem[]
+  services: ServiceItem[]
   notes: string
 }
+
+// --- Mock Data & Initial States ---
 
 const mockMechanics = [
   "John Doe",
@@ -73,7 +110,6 @@ const mockMechanics = [
   "Tom Brown",
 ]
 
-// --- Initial Data for new/modal states ---
 const initialServiceState: ServiceItem = {
   id: "",
   description: "",
@@ -88,6 +124,23 @@ const initialPartState: SparePartItem = {
   taxPercent: 0,
 }
 
+// UPDATED: Initial jobCard state is now mostly empty, waiting for booking data
+const initialJobCardState: JobCard = {
+  id: "",
+  bookingId: "",
+  customer: "",
+  phone: "",
+  email: "",
+  vehicle: "",
+  service: "",
+  date: "",
+  time: "",
+  assignedMechanic: mockMechanics[0], // Default to first mechanic
+  spareParts: [], // Start empty
+  services: [], // Start empty
+  notes: "",
+}
+
 export default function JobCardPage() {
   const router = useRouter()
   const params = useParams()
@@ -95,52 +148,13 @@ export default function JobCardPage() {
 
   const [userRole, setUserRole] = useState<"admin" | "workshop" | null>(null)
   const [mounted, setMounted] = useState(false)
-  const [jobCard, setJobCard] = useState<JobCard>({
-    id: `JC${bookingId}`,
-    bookingId: bookingId,
-    customer: "John Smith",
-    phone: "555-0101",
-    email: "john.smith@email.com",
-    vehicle: "2020 Toyota Camry - Silver",
-    service: "Oil Change",
-    date: "2024-01-15",
-    time: "09:00 AM",
-    assignedMechanic: "John Doe",
-    spareParts: [
-      {
-        id: "P1",
-        name: "Oil Filter",
-        quantity: 1,
-        price: 750,
-        taxPercent: 18,
-      },
-      {
-        id: "P2",
-        name: "Synthetic Oil (5L)",
-        quantity: 1,
-        price: 2200,
-        taxPercent: 18,
-      },
-    ],
-    services: [
-      {
-        id: "L1",
-        description: "Oil Change Service",
-        cost: 500,
-        taxPercent: 18,
-      },
-    ],
-    notes: "Regular maintenance",
-  })
+  
+  // UPDATED: Job card state starts empty
+  const [jobCard, setJobCard] = useState<JobCard>(initialJobCardState)
 
   // --- New State Variables ---
-  const [issues, setIssues] = useState<string[]>([
-    "Engine making rattling noise",
-    "Brakes feel soft",
-  ])
-  const [additionalWorkers, setAdditionalWorkers] = useState<string[]>([
-    "Technician Bob",
-  ])
+  const [issues, setIssues] = useState<string[]>([])
+  const [additionalWorkers, setAdditionalWorkers] = useState<string[]>([])
 
   // Modal visibility state
   const [isIssueModalOpen, setIsIssueModalOpen] = useState(false)
@@ -162,9 +176,47 @@ export default function JobCardPage() {
     const role = localStorage.getItem("userRole") as "admin" | "workshop" | null
     if (!role || role !== "workshop") {
       router.push("/dashboard")
+      return
     }
     setUserRole(role)
-  }, [router])
+
+    // UPDATED: Fetch booking data from localStorage
+    if (bookingId) {
+      try {
+        const allBookings: BookingFormData[] = JSON.parse(localStorage.getItem("allBookings") || "[]")
+        const currentBooking = allBookings.find(b => b.id === bookingId)
+
+        if (currentBooking) {
+          // Populate job card state from the found booking
+          setJobCard({
+            id: `JC${currentBooking.id}`, // Create Job Card ID from Booking ID
+            bookingId: currentBooking.id,
+            customer: currentBooking.customerName,
+            phone: currentBooking.phone,
+            email: currentBooking.email,
+            vehicle: `${currentBooking.makeYear} ${currentBooking.makeAndModel} - ${currentBooking.color || ''}`.trim(),
+            service: currentBooking.makeAndModel, // Use Make & Model as the service description
+            date: currentBooking.date || new Date().toISOString().split("T")[0],
+            time: currentBooking.time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            assignedMechanic: currentBooking.serviceAdvisor || mockMechanics[0],
+            notes: currentBooking.customerRemark,
+            spareParts: [], // Start with no parts
+            services: [],  // Start with no services
+          })
+          // You could also pre-populate issues from remarks
+          if (currentBooking.customerRemark) {
+            setIssues([currentBooking.customerRemark])
+          }
+        } else {
+          console.error("Booking not found")
+          // Optionally redirect if no booking is found
+          // router.push("/dashboard/bookings")
+        }
+      } catch (error) {
+        console.error("Failed to load booking data", error)
+      }
+    }
+  }, [router, bookingId])
 
   // --- Summary Calculations ---
   const partsSubtotal = jobCard.spareParts.reduce(
@@ -285,9 +337,13 @@ export default function JobCardPage() {
     })
   }
 
+  // THIS IS THE KEY FUNCTION FOR THE NEXT STEP
   const handleGenerateInvoice = () => {
+    // Save the current job card data (with added parts/services) to localStorage
     localStorage.setItem("jobCardData", JSON.stringify(jobCard))
-    router.push(`/dashboard/invoices/create?jobCardId=${jobCard.id}`)
+    // Redirect to the invoices page with a query param
+    // NOTE: We use jobCard.bookingId to match the invoice page logic
+    router.push(`/dashboard/invoices?jobCardId=${jobCard.bookingId}`)
   }
 
   if (!mounted || !userRole) return null
@@ -548,6 +604,13 @@ export default function JobCardPage() {
                       </tr>
                     )
                   })}
+                   {jobCard.spareParts.length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="py-4 text-center text-muted-foreground">
+                        No parts added yet.
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -636,6 +699,13 @@ export default function JobCardPage() {
                       </tr>
                     )
                   })}
+                  {jobCard.services.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="py-4 text-center text-muted-foreground">
+                        No services added yet.
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>

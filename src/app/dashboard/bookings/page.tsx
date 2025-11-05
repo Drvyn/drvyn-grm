@@ -54,18 +54,9 @@ interface BookingFormData {
   fuelIndicator: number
   // Original Booking fields
   status: "pending" | "confirmed" | "in-progress" | "completed" | "cancelled"
-}
-
-// Keep the simple booking for the table (Unchanged)
-interface Booking {
-  id: string
-  customer: string
-  phone: string
-  date: string
-  time: string
-  service: string
-  status: "pending" | "confirmed" | "in-progress" | "completed" | "cancelled"
-  notes?: string
+  // NEW: Added date and time for job card
+  date?: string
+  time?: string
 }
 
 // Interface for the new employee form
@@ -87,26 +78,71 @@ interface Employee extends NewEmployeeData {
   id: string
 }
 
-const initialBookings: Booking[] = [
+// UPDATED: initialBookings now uses the full BookingFormData
+const initialBookings: BookingFormData[] = [
   {
     id: "BK001",
-    customer: "John Smith",
+    customerType: "Individual",
+    customerName: "John Smith",
     phone: "555-0101",
+    email: "john@example.com",
+    address: "123 Main St",
+    taxNumber: "",
+    drivingLicenseNumber: "",
+    businessType: "Car",
+    subType: "Sedan",
+    carNumber: "NY-123",
+    makeAndModel: "Oil Change", // Using this field for 'service' as in old data
+    fuelType: "Petrol",
+    transmissionType: "AT",
+    engineNumber: "",
+    vinNumber: "",
+    variant: "",
+    makeYear: "2020",
+    color: "Blue",
+    runningPerDay: "50",
+    insuranceDetails: "",
+    serviceAdvisor: "BALAJI BALAJI",
+    bookingType: "At Workshop",
+    department: "General Service",
+    customerRemark: "Regular maintenance",
+    odometer: "45000",
+    fuelIndicator: 50,
+    status: "confirmed",
     date: "2024-01-15",
     time: "09:00 AM",
-    service: "Oil Change",
-    status: "confirmed",
-    notes: "Regular maintenance",
   },
   {
     id: "BK002",
-    customer: "Sarah Johnson",
+    customerType: "Individual",
+    customerName: "Sarah Johnson",
     phone: "555-0102",
+    email: "sarah@example.com",
+    address: "456 Oak Ave",
+    taxNumber: "",
+    drivingLicenseNumber: "",
+    businessType: "Car",
+    subType: "SUV",
+    carNumber: "CA-456",
+    makeAndModel: "Tire Rotation", // Using this field for 'service' as in old data
+    fuelType: "Diesel",
+    transmissionType: "AT",
+    engineNumber: "",
+    vinNumber: "",
+    variant: "",
+    makeYear: "2019",
+    color: "Red",
+    runningPerDay: "30",
+    insuranceDetails: "",
+    serviceAdvisor: "Harish",
+    bookingType: "Pickup",
+    department: "Quick Lube",
+    customerRemark: "",
+    odometer: "32000",
+    fuelIndicator: 75,
+    status: "pending",
     date: "2024-01-15",
     time: "10:30 AM",
-    service: "Tire Rotation",
-    status: "pending",
-    notes: "",
   },
 ]
 
@@ -174,7 +210,8 @@ export default function BookingsPage() {
   const router = useRouter()
   const [userRole, setUserRole] = useState<"admin" | "workshop" | null>(null)
   const [mounted, setMounted] = useState(false)
-  const [bookings, setBookings] = useState<Booking[]>(initialBookings)
+  // UPDATED: State now holds the full BookingFormData
+  const [bookings, setBookings] = useState<BookingFormData[]>(initialBookings)
   const [searchTerm, setSearchTerm] = useState("")
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -204,11 +241,24 @@ export default function BookingsPage() {
       router.push("/dashboard")
     }
     setUserRole(role)
+
+    // UPDATED: Load bookings from localStorage
+    try {
+      const savedBookings = localStorage.getItem("allBookings")
+      if (savedBookings) {
+        setBookings(JSON.parse(savedBookings))
+      } else {
+        setBookings(initialBookings) // Fallback to initial mocks
+      }
+    } catch (error) {
+      console.error("Failed to parse bookings from localStorage", error)
+      setBookings(initialBookings)
+    }
   }, [router])
 
   const filteredBookings = bookings.filter(
     (booking) =>
-      booking.customer.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      booking.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       booking.id.toLowerCase().includes(searchTerm.toLowerCase()),
   )
 
@@ -221,19 +271,14 @@ export default function BookingsPage() {
     setShowForm(true)
   }
 
-  const handleEdit = (booking: Booking) => {
+  // UPDATED: handleEdit now loads the full booking object into the form
+  const handleEdit = (booking: BookingFormData) => {
     setEditingId(booking.id)
-    setFormData({
-      ...initialFormData,
-      id: booking.id,
-      customerName: booking.customer,
-      phone: booking.phone,
-      status: booking.status,
-      makeAndModel: booking.service,
-    })
+    setFormData(booking)
     setShowForm(true)
   }
 
+  // UPDATED: handleSave now saves the full formData and stores it in localStorage
   const handleSave = () => {
     const mandatoryFields: (keyof BookingFormData)[] = [
       "customerType", "customerName", "phone", "businessType", "subType",
@@ -248,35 +293,44 @@ export default function BookingsPage() {
       return;
     }
 
-    const simpleBooking: Booking = {
-      id: formData.id,
-      customer: formData.customerName,
-      phone: formData.phone,
-      date: new Date().toISOString().split("T")[0],
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      service: formData.makeAndModel,
-      status: formData.status,
-      notes: formData.customerRemark,
-    }
+    let updatedBookings: BookingFormData[] = []
 
     if (editingId) {
-      setBookings(bookings.map((b) => (b.id === editingId ? simpleBooking : b)))
+      // Update existing booking
+      const updatedBooking = { ...formData }
+      updatedBookings = bookings.map((b) => (b.id === editingId ? updatedBooking : b))
+      
     } else {
-      setBookings([...bookings, simpleBooking])
+      // Add new booking with current date and time
+      const newBooking = {
+        ...formData,
+        date: new Date().toISOString().split("T")[0],
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      }
+      updatedBookings = [...bookings, newBooking]
     }
+
+    setBookings(updatedBookings)
+    localStorage.setItem("allBookings", JSON.stringify(updatedBookings)) // Save to localStorage
 
     setShowForm(false)
     setFormData(initialFormData)
   }
 
+  // UPDATED: handleDelete now also updates localStorage
   const handleDelete = (id: string) => {
     if (confirm("Are you sure you want to delete this booking?")) {
-      setBookings(bookings.filter((b) => b.id !== id))
+      const newBookings = bookings.filter((b) => b.id !== id)
+      setBookings(newBookings)
+      localStorage.setItem("allBookings", JSON.stringify(newBookings)) // Update localStorage
     }
   }
 
-  const handleStatusChange = (id: string, newStatus: Booking["status"]) => {
-    setBookings(bookings.map((b) => (b.id === id ? { ...b, status: newStatus } : b)))
+  // UPDATED: handleStatusChange now also updates localStorage
+  const handleStatusChange = (id: string, newStatus: BookingFormData["status"]) => {
+    const newBookings = bookings.map((b) => (b.id === id ? { ...b, status: newStatus } : b))
+    setBookings(newBookings)
+    localStorage.setItem("allBookings", JSON.stringify(newBookings)) // Update localStorage
   }
   
   const handleFormChange = (field: keyof BookingFormData, value: any) => {
@@ -437,6 +491,7 @@ export default function BookingsPage() {
                 </thead>
                 <tbody>
                   {filteredBookings.length > 0 ? (
+                    // UPDATED: Table now maps over full BookingFormData
                     filteredBookings.map((booking) => (
                       <tr
                         key={booking.id}
@@ -449,7 +504,7 @@ export default function BookingsPage() {
                           {booking.id}
                         </td>
                         <td className="py-3 px-4">
-                          <div className="text-sm font-medium text-foreground">{booking.customer}</div>
+                          <div className="text-sm font-medium text-foreground">{booking.customerName}</div>
                           <div className="text-xs text-muted-foreground flex items-center gap-1">
                             <Phone className="w-3 h-3" />
                             {booking.phone}
@@ -458,17 +513,17 @@ export default function BookingsPage() {
                         <td className="py-3 px-4">
                           <div className="text-sm text-foreground flex items-center gap-1">
                             <CalendarIcon className="w-4 h-4" />
-                            {booking.date} {booking.time}
+                            {booking.date ? `${booking.date} ${booking.time}` : 'N/A'}
                           </div>
                         </td>
-                        <td className="py-3 px-4 text-sm text-foreground">{booking.service}</td>
+                        <td className="py-3 px-4 text-sm text-foreground">{booking.makeAndModel}</td>
                         <td className="py-3 px-4">
                           <select
                             value={booking.status}
                             onClick={(e) => e.stopPropagation()} // Prevent row click
                             onChange={(e) => {
                               e.stopPropagation();
-                              handleStatusChange(booking.id, e.target.value as Booking["status"])
+                              handleStatusChange(booking.id, e.target.value as BookingFormData["status"])
                             }}
                             className={`px-3 py-1 rounded-full text-xs font-medium border-0 cursor-pointer ${getStatusColor(booking.status)}`}
                           >
