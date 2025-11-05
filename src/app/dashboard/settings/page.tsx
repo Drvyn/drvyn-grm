@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -9,19 +9,73 @@ import { Switch } from "@/components/ui/switch"
 
 export default function SettingsPage() {
   const [settings, setSettings] = useState({
-    workshopName: localStorage.getItem("workshopName") || "",
-    email: localStorage.getItem("userEmail") || "",
+    workshopName: "",
+    email: "",
     notifications: true,
     darkMode: false,
   })
+  const [isMounted, setIsMounted] = useState(false)
+
+  // Initialize settings from localStorage after component mounts
+  useEffect(() => {
+    setIsMounted(true)
+    const workshopName = localStorage.getItem("workshopName") || ""
+    const email = localStorage.getItem("userEmail") || ""
+    const notifications = localStorage.getItem("notifications") !== "false" // Default to true
+    const darkMode = localStorage.getItem("darkMode") === "true" // Default to false
+
+    setSettings({
+      workshopName,
+      email,
+      notifications,
+      darkMode,
+    })
+  }, [])
 
   const handleChange = (key: string, value: any) => {
     setSettings((prev) => ({ ...prev, [key]: value }))
   }
 
   const handleSave = () => {
+    if (!isMounted) return
+    
     localStorage.setItem("workshopName", settings.workshopName)
+    localStorage.setItem("userEmail", settings.email)
+    localStorage.setItem("notifications", settings.notifications.toString())
+    localStorage.setItem("darkMode", settings.darkMode.toString())
+    
     alert("Settings saved successfully!")
+  }
+
+  // Apply dark mode to document
+  useEffect(() => {
+    if (!isMounted) return
+    
+    if (settings.darkMode) {
+      document.documentElement.classList.add('dark')
+    } else {
+      document.documentElement.classList.remove('dark')
+    }
+  }, [settings.darkMode, isMounted])
+
+  // Don't render until component is mounted to avoid hydration mismatch
+  if (!isMounted) {
+    return (
+      <div className="p-6 space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold text-foreground">Settings</h1>
+          <p className="text-muted-foreground mt-1">Manage your account and preferences</p>
+        </div>
+        <Card className="border-border">
+          <CardContent className="p-6">
+            <div className="animate-pulse">
+              <div className="h-4 bg-muted rounded w-1/4 mb-2"></div>
+              <div className="h-4 bg-muted rounded w-1/2"></div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
   return (
