@@ -1,0 +1,541 @@
+"use client"
+
+import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Plus, Search, Download, Eye, X, Check } from "lucide-react" // Removed DollarSign
+import DashboardLayout from "@/components/dashboard-layout"
+
+interface InvoiceItem {
+  description: string
+  quantity: number
+  unitPrice: number
+}
+
+interface Invoice {
+  id: string
+  jobCardId: string
+  customer: string
+  amount: number
+  items: InvoiceItem[]
+  date: string
+  dueDate: string
+  status: "draft" | "sent" | "paid" | "overdue"
+  notes: string
+}
+
+const initialInvoices: Invoice[] = [
+  {
+    id: "INV-2024-001",
+    jobCardId: "JC001",
+    customer: "John Smith",
+    amount: 90,
+    items: [
+      { description: "Oil Change Service", quantity: 1, unitPrice: 45 },
+      { description: "Oil Filter", quantity: 1, unitPrice: 15 },
+      { description: "Labor", quantity: 1, unitPrice: 30 },
+    ],
+    date: "2024-01-10",
+    dueDate: "2024-01-24",
+    status: "paid",
+    notes: "Thank you for your business!",
+  },
+  {
+    id: "INV-2024-002",
+    jobCardId: "JC002",
+    customer: "Sarah Johnson",
+    amount: 90,
+    items: [
+      { description: "Tire Rotation Service", quantity: 1, unitPrice: 50 },
+      { description: "Labor", quantity: 1, unitPrice: 40 },
+    ],
+    date: "2024-01-15",
+    dueDate: "2024-01-29",
+    status: "sent",
+    notes: "Payment due within 14 days",
+  },
+  {
+    id: "INV-2024-003",
+    jobCardId: "JC003",
+    customer: "Mike Davis",
+    amount: 240,
+    items: [
+      { description: "Brake Inspection", quantity: 1, unitPrice: 60 },
+      { description: "Brake Pads", quantity: 1, unitPrice: 80 },
+      { description: "Brake Fluid", quantity: 1, unitPrice: 25 },
+      { description: "Labor", quantity: 1, unitPrice: 75 },
+    ],
+    date: "2024-01-16",
+    dueDate: "2024-01-30",
+    status: "draft",
+    notes: "Pending approval",
+  },
+]
+
+export default function InvoicesPage() {
+  const router = useRouter()
+  const [userRole, setUserRole] = useState<"admin" | "workshop" | null>(null)
+  const [mounted, setMounted] = useState(false)
+  const [invoices, setInvoices] = useState<Invoice[]>(initialInvoices)
+  const [searchTerm, setSearchTerm] = useState("")
+  const [showForm, setShowForm] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [formData, setFormData] = useState<Invoice>({
+    id: "",
+    jobCardId: "",
+    customer: "",
+    amount: 0,
+    items: [],
+    date: new Date().toISOString().split("T")[0],
+    dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .split("T")[0],
+    status: "draft",
+    notes: "",
+  })
+
+  useEffect(() => {
+    setMounted(true)
+    const role = localStorage.getItem("userRole") as "admin" | "workshop" | null
+    if (!role || role !== "workshop") {
+      router.push("/dashboard")
+    }
+    setUserRole(role)
+  }, [router])
+
+  const filteredInvoices = invoices.filter(
+    (invoice) =>
+      invoice.customer.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      invoice.id.toLowerCase().includes(searchTerm.toLowerCase()),
+  )
+
+  const handleAddNew = () => {
+    setEditingId(null)
+    setFormData({
+      id: `INV-2024-${String(invoices.length + 1).padStart(3, "0")}`,
+      jobCardId: "",
+      customer: "",
+      amount: 0,
+      items: [],
+      date: new Date().toISOString().split("T")[0],
+      dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)
+        .toISOString()
+        .split("T")[0],
+      status: "draft",
+      notes: "",
+    })
+    setShowForm(true)
+  }
+
+  const handleEdit = (invoice: Invoice) => {
+    setEditingId(invoice.id)
+    setFormData(invoice)
+    setShowForm(true)
+  }
+
+  const handleSave = () => {
+    if (
+      !formData.customer ||
+      !formData.jobCardId ||
+      formData.items.length === 0
+    ) {
+      alert("Please fill in all required fields and add at least one item")
+      return
+    }
+
+    const total = formData.items.reduce(
+      (sum, item) => sum + item.quantity * item.unitPrice,
+      0,
+    )
+    const updatedFormData = { ...formData, amount: total }
+
+    if (editingId) {
+      setInvoices(
+        invoices.map((i) => (i.id === editingId ? updatedFormData : i)),
+      )
+    } else {
+      setInvoices([...invoices, updatedFormData])
+    }
+
+    setShowForm(false)
+  }
+
+  const handleStatusChange = (id: string, newStatus: Invoice["status"]) => {
+    setInvoices(
+      invoices.map((i) => (i.id === id ? { ...i, status: newStatus } : i)),
+    )
+  }
+
+  const handleAddItem = () => {
+    setFormData({
+      ...formData,
+      items: [
+        ...formData.items,
+        { description: "", quantity: 1, unitPrice: 0 },
+      ],
+    })
+  }
+
+  const handleRemoveItem = (index: number) => {
+    setFormData({
+      ...formData,
+      items: formData.items.filter((_, i) => i !== index),
+    })
+  }
+
+  if (!mounted || !userRole) return null
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "draft":
+        return "bg-gray-100 text-gray-800"
+      case "sent":
+        return "bg-blue-100 text-blue-800"
+      case "paid":
+        return "bg-green-100 text-green-800"
+      case "overdue":
+        return "bg-red-100 text-red-800"
+      default:
+        return "bg-gray-100 text-gray-800"
+    }
+  }
+
+  return (
+    <DashboardLayout>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground">Invoices</h1>
+            <p className="text-muted-foreground">Manage your invoices and payments</p>
+          </div>
+          <Button
+            onClick={handleAddNew}
+            className="bg-primary hover:bg-primary/90"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Create Invoice
+          </Button>
+        </div>
+
+        {/* Invoice Form Modal */}
+        {showForm && (
+          <Card className="border-primary/50 bg-primary/5">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+              <CardTitle>
+                {editingId ? "Edit Invoice" : "Create New Invoice"}
+              </CardTitle>
+              <button
+                onClick={() => setShowForm(false)}
+                className="p-1 hover:bg-muted rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Job Card ID *</label>
+                  <Input
+                    value={formData.jobCardId}
+                    onChange={(e) =>
+                      setFormData({ ...formData, jobCardId: e.target.value })
+                    }
+                    placeholder="e.g., JC001"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Customer Name *</label>
+                  <Input
+                    value={formData.customer}
+                    onChange={(e) =>
+                      setFormData({ ...formData, customer: e.target.value })
+                    }
+                    placeholder="Enter customer name"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Invoice Date</label>
+                  <Input
+                    type="date"
+                    value={formData.date}
+                    onChange={(e) =>
+                      setFormData({ ...formData, date: e.target.value })
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Due Date</label>
+                  <Input
+                    type="date"
+                    value={formData.dueDate}
+                    onChange={(e) =>
+                      setFormData({ ...formData, dueDate: e.target.value })
+                    }
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-4 mb-6">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-medium">Invoice Items *</h3>
+                  <Button onClick={handleAddItem} variant="outline" size="sm">
+                    <Plus className="w-4 h-4 mr-1" />
+                    Add Item
+                  </Button>
+                </div>
+
+                <div className="space-y-3 max-h-64 overflow-y-auto">
+                  {formData.items.map((item, idx) => (
+                    <div key={idx} className="flex gap-2 items-end">
+                      <Input
+                        placeholder="Description"
+                        value={item.description}
+                        onChange={(e) => {
+                          const newItems = [...formData.items]
+                          newItems[idx].description = e.target.value
+                          setFormData({ ...formData, items: newItems })
+                        }}
+                        className="flex-1"
+                      />
+                      <Input
+                        type="number"
+                        placeholder="Qty"
+                        value={item.quantity}
+                        onChange={(e) => {
+                          const newItems = [...formData.items]
+                          newItems[idx].quantity =
+                            Number.parseFloat(e.target.value) || 0
+                          setFormData({ ...formData, items: newItems })
+                        }}
+                        className="w-20"
+                      />
+                      <Input
+                        type="number"
+                        placeholder="Price"
+                        value={item.unitPrice}
+                        onChange={(e) => {
+                          const newItems = [...formData.items]
+                          newItems[idx].unitPrice =
+                            Number.parseFloat(e.target.value) || 0
+                          setFormData({ ...formData, items: newItems })
+                        }}
+                        className="w-24"
+                      />
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleRemoveItem(idx)}
+                        className="hover:bg-destructive/10"
+                      >
+                        <X className="w-4 h-4 text-destructive" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="bg-muted/50 p-3 rounded-lg">
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium">Total:</span>
+                    <span className="text-lg font-bold flex items-center gap-1">
+                      ₹
+                      {formData.items
+                        .reduce(
+                          (sum, item) => sum + item.quantity * item.unitPrice,
+                          0,
+                        )
+                        .toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-2 mb-6">
+                <label className="text-sm font-medium">Status</label>
+                <select
+                  value={formData.status}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      status: e.target.value as Invoice["status"],
+                    })
+                  }
+                  className="w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground"
+                >
+                  <option value="draft">Draft</option>
+                  <option value="sent">Sent</option>
+                  <option value="paid">Paid</option>
+                  <option value="overdue">Overdue</option>
+                </select>
+              </div>
+
+              <div className="space-y-2 mb-6">
+                <label className="text-sm font-medium">Notes</label>
+                <textarea
+                  value={formData.notes}
+                  onChange={(e) =>
+                    setFormData({ ...formData, notes: e.target.value })
+                  }
+                  placeholder="Add any additional notes..."
+                  className="w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground"
+                  rows={2}
+                />
+              </div>
+
+              <div className="flex gap-2">
+                <Button
+                  onClick={handleSave}
+                  className="bg-primary hover:bg-primary/90"
+                >
+                  <Check className="w-4 h-4 mr-2" />
+                  Save Invoice
+                </Button>
+                <Button onClick={() => setShowForm(false)} variant="outline">
+                  Cancel
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Search */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Search Invoices</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex gap-2">
+              <div className="flex-1 relative">
+                <Search className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search by invoice number or customer..."
+                  className="pl-10"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Invoices Table */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Invoice List</CardTitle>
+            <CardDescription>
+              All invoices and payment status ({filteredInvoices.length})
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-border">
+                    <th className="text-left py-3 px-4 font-medium text-muted-foreground">
+                      Invoice ID
+                    </th>
+                    <th className="text-left py-3 px-4 font-medium text-muted-foreground">
+                      Customer
+                    </th>
+                    <th className="text-left py-3 px-4 font-medium text-muted-foreground">
+                      Amount
+                    </th>
+                    <th className="text-left py-3 px-4 font-medium text-muted-foreground">
+                      Date
+                    </th>
+                    <th className="text-left py-3 px-4 font-medium text-muted-foreground">
+                      Due Date
+                    </th>
+                    <th className="text-left py-3 px-4 font-medium text-muted-foreground">
+                      Status
+                    </th>
+                    <th className="text-left py-3 px-4 font-medium text-muted-foreground">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredInvoices.length > 0 ? (
+                    filteredInvoices.map((invoice) => (
+                      <tr
+                        key={invoice.id}
+                        className="border-b border-border hover:bg-muted/50 transition-colors"
+                      >
+                        <td className="py-3 px-4 text-sm font-medium text-foreground">
+                          {invoice.id}
+                        </td>
+                        <td className="py-3 px-4 text-sm text-foreground">
+                          {invoice.customer}
+                        </td>
+                        <td className="py-3 px-4 text-sm font-medium text-foreground flex items-center gap-1">
+                          ₹{invoice.amount.toFixed(2)}
+                        </td>
+                        <td className="py-3 px-4 text-sm text-foreground">
+                          {invoice.date}
+                        </td>
+                        <td className="py-3 px-4 text-sm text-foreground">
+                          {invoice.dueDate}
+                        </td>
+                        <td className="py-3 px-4">
+                          <select
+                            value={invoice.status}
+                            onChange={(e) =>
+                              handleStatusChange(
+                                invoice.id,
+                                e.target.value as Invoice["status"],
+                              )
+                            }
+                            className={`px-3 py-1 rounded-full text-xs font-medium border-0 cursor-pointer ${getStatusColor(
+                              invoice.status,
+                            )}`}
+                          >
+                            <option value="draft">Draft</option>
+                            <option value="sent">Sent</option>
+                            <option value="paid">Paid</option>
+                            <option value="overdue">Overdue</option>
+                          </select>
+                        </td>
+                        <td className="py-3 px-4 flex gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="hover:bg-primary/10"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="hover:bg-primary/10"
+                          >
+                            <Download className="w-4 h-4" />
+                          </Button>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td
+                        colSpan={7}
+                        className="py-8 text-center text-muted-foreground"
+                      >
+                        No invoices found
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </DashboardLayout>
+  )
+}
