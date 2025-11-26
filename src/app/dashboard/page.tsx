@@ -15,13 +15,16 @@ import {
   LineChart,
   Line,
 } from "recharts"
-import { Wrench, Users, FileText, Settings, TrendingUp, Clock, Calendar as CalendarIcon } from "lucide-react"
+import { Wrench, Users, FileText, TrendingUp, Clock, Calendar as CalendarIcon, Loader2, AlertCircle, Building } from "lucide-react"
 import DashboardLayout from "@/components/dashboard-layout"
 import { Button } from "@/components/ui/button"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Calendar } from "@/components/ui/calendar"
 import { DateRange } from "react-day-picker"
-import { format, addDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays } from "date-fns"
+import { format, addDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays, parseISO } from "date-fns"
+import { useAuth } from "@/contexts/AppProviders"
+import { useDashboardStats, useRecentActivity } from "@/hooks/useApi"
+import { Skeleton } from "@/components/ui/skeleton"
 
 // Helper function to generate daily data for the last 30 days
 const generateDailyData = () => {
@@ -38,72 +41,40 @@ const generateDailyData = () => {
   }
   return data
 }
-
 const dailyChartData = generateDailyData()
-
-// Mock data for stats simulation
-const MOCK_STATS_DB = {
-  day: { bookings: 12, completed: 9, revenue: 1150, pending: 3 },
-  week: { bookings: 84, completed: 72, revenue: 9200, pending: 12 },
-  month: { bookings: 312, completed: 289, revenue: 34200, pending: 23 },
-  year: { bookings: 3500, completed: 3200, revenue: 410000, pending: 150 },
-  custom: { bookings: 42, completed: 38, revenue: 4800, pending: 4 },
-}
 
 export default function DashboardPage() {
   const router = useRouter()
-  const [userRole, setUserRole] = useState<"admin" | "workshop" | null>(null)
+  const { user } = useAuth()
   const [workshopName, setWorkshopName] = useState("")
   const [mounted, setMounted] = useState(false)
 
-  // State for stats
-  const [stats, setStats] = useState(MOCK_STATS_DB.day)
   // State for date range picker
   const [date, setDate] = useState<DateRange | undefined>({
     from: new Date(),
     to: new Date(),
   })
   const [filterType, setFilterType] = useState<"day" | "week" | "month" | "year" | "custom">("day")
+  
+  // Format dates for API query
+  const apiDateRange = {
+    from: date?.from ? format(date.from, "yyyy-MM-dd") : "",
+    to: date?.to ? format(date.to, "yyyy-MM-dd") : "",
+  }
+
+  // --- Live Data Fetching ---
+  const { data: stats, isLoading: isLoadingStats, isError: isErrorStats } = useDashboardStats(apiDateRange)
+  const { data: activities, isLoading: isLoadingActivity, isError: isErrorActivity } = useRecentActivity()
 
   useEffect(() => {
     setMounted(true)
-    const role = localStorage.getItem("userRole") as "admin" | "workshop" | null
-    const workshop = localStorage.getItem("workshopName") || "My Workshop"
-
-    if (!role) {
+    if (!user) {
       router.push("/")
       return
     }
-
-    setUserRole(role)
-    setWorkshopName(workshop)
-  }, [router])
-
-  // Effect to "fetch" data when date changes
-  useEffect(() => {
-    // Simulate API call based on filterType
-    console.log("Fetching data for:", filterType, date)
-    switch (filterType) {
-      case "day":
-        setStats(MOCK_STATS_DB.day)
-        break
-      case "week":
-        setStats(MOCK_STATS_DB.week)
-        break
-      case "month":
-        setStats(MOCK_STATS_DB.month)
-        break
-      case "year":
-        setStats(MOCK_STATS_DB.year)
-        break
-      case "custom":
-        // In a real app, you'd fetch using the 'date' range
-        setStats(MOCK_STATS_DB.custom)
-        break
-      default:
-        setStats(MOCK_STATS_DB.day)
-    }
-  }, [date, filterType])
+    // Get workshop name from Firebase user display name
+    setWorkshopName(user.displayName || "My Workshop")
+  }, [router, user])
 
   const setDateFilter = (type: "day" | "week" | "month" | "year") => {
     setFilterType(type)
@@ -124,8 +95,15 @@ export default function DashboardPage() {
     setFilterType("custom")
   }
 
-  if (!mounted || !userRole) {
-    return null
+  if (!mounted || !user) {
+    return null // or a loading spinner
+  }
+
+  // Helper to render stat card content
+  const renderStat = (value: number | undefined, prefix = "") => {
+    if (isLoadingStats) return <Skeleton className="h-8 w-24" />
+    if (isErrorStats) return <span className="text-destructive text-sm">Error</span>
+    return <div className="text-3xl font-bold">{prefix}{value?.toLocaleString() || 0}</div>
   }
 
   return (
@@ -184,7 +162,7 @@ export default function DashboardPage() {
               <CardTitle className="text-sm font-medium text-muted-foreground">Total Bookings</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-foreground">{stats.bookings.toLocaleString()}</div>
+              {renderStat(stats?.bookings)}
               <p className="text-xs text-muted-foreground mt-1">+12% from last period</p>
             </CardContent>
           </Card>
@@ -194,8 +172,10 @@ export default function DashboardPage() {
               <CardTitle className="text-sm font-medium text-muted-foreground">Completed Jobs</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-foreground">{stats.completed.toLocaleString()}</div>
-              <p className="text-xs text-muted-foreground mt-1">92.6% completion rate</p>
+              {renderStat(stats?.completed)}
+              <p className="text-xs text-muted-foreground mt-1">
+                {stats?.bookings ? `${((stats.completed / stats.bookings) * 100).toFixed(0)}% rate` : "N/A"}
+              </p>
             </CardContent>
           </Card>
 
@@ -204,7 +184,7 @@ export default function DashboardPage() {
               <CardTitle className="text-sm font-medium text-muted-foreground">Revenue</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-green-600">₹{stats.revenue.toLocaleString()}</div>
+              {renderStat(stats?.revenue, "₹")}
               <p className="text-xs text-muted-foreground mt-1">+8% from last period</p>
             </CardContent>
           </Card>
@@ -214,7 +194,7 @@ export default function DashboardPage() {
               <CardTitle className="text-sm font-medium text-muted-foreground">Pending Tasks</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-destructive">{stats.pending.toLocaleString()}</div>
+              {renderStat(stats?.pending)}
               <p className="text-xs text-muted-foreground mt-1">Require attention</p>
             </CardContent>
           </Card>
@@ -258,7 +238,7 @@ export default function DashboardPage() {
                 <LineChart data={dailyChartData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                   <XAxis dataKey="date" stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
-                  <YAxis stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} refX="₹" />
+                  <YAxis stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(val) => `₹${val}`} />
                   <Tooltip
                     contentStyle={{
                       backgroundColor: "var(--card)",
@@ -288,19 +268,21 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {[
-                { title: "New booking from John Smith", time: "2 hours ago", icon: Clock },
-                { title: "Invoice #INV-2024-001 sent", time: "4 hours ago", icon: FileText },
-                { title: "Job #JOB-2024-045 completed", time: "6 hours ago", icon: Wrench },
-                { title: "Payment received: $1,250", time: "1 day ago", icon: TrendingUp },
-              ].map((activity, idx) => (
-                <div key={idx} className="flex items-start gap-4 pb-4 border-b border-border last:border-0">
+              {isLoadingActivity && <Loader2 className="animate-spin" />}
+              {isErrorActivity && <p className="text-destructive">Failed to load activity.</p>}
+              {activities && activities.length === 0 && (
+                <p className="text-muted-foreground">No recent activity.</p>
+              )}
+              {activities?.map((activity, index) => (
+                <div key={activity.id || activity._id || index} className="flex items-start gap-4 pb-4 border-b border-border last:border-0">
                   <div className="p-2 bg-primary/10 rounded-lg">
-                    <activity.icon className="w-4 h-4 text-primary" />
+                    <IconForActivity iconName={activity.icon} />
                   </div>
                   <div className="flex-1">
                     <p className="text-sm font-medium text-foreground">{activity.title}</p>
-                    <p className="text-xs text-muted-foreground">{activity.time}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {activity.created_at ? format(parseISO(activity.created_at), "MMM d, h:mm a") : "Just now"}
+                    </p>
                   </div>
                 </div>
               ))}
@@ -310,4 +292,22 @@ export default function DashboardPage() {
       </div>
     </DashboardLayout>
   )
+}
+
+const IconForActivity = ({ iconName }: { iconName: string }) => {
+    const iconMap: { [key: string]: React.ElementType } = {
+        Clock: Clock,
+        FileText: FileText,
+        Wrench: Wrench,
+        TrendingUp: TrendingUp,
+        UserPlus: Users, 
+        Building: Building, 
+        Users: Users, 
+        DollarSign: FileText,
+        Package: Wrench, 
+        Trash2: AlertCircle,
+        Edit2: Wrench,
+    };
+    const Icon = iconMap[iconName] || Clock; 
+    return <Icon className="w-4 h-4 text-primary" />;
 }

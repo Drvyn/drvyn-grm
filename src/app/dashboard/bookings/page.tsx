@@ -13,142 +13,38 @@ import { Textarea } from "@/components/ui/textarea"
 import { Slider } from "@/components/ui/slider"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { Plus, Search, Calendar as CalendarIcon, Phone, Edit2, Trash2, X, Check, User, MoreVertical, Building } from "lucide-react"
+import { Plus, Search, Calendar as CalendarIcon, Phone, Edit2, Trash2, X, Check, MoreVertical, Loader2 } from "lucide-react"
 import DashboardLayout from "@/components/dashboard-layout"
-import { format } from "date-fns"
+import { format, parseISO } from "date-fns"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { useAuth } from "@/contexts/AppProviders"
+import {
+  Booking,
+  BookingIn,
+  Employee,
+  EmployeeIn,
+  useBookings,
+  useSaveBooking,
+  useDeleteBooking,
+  useUpdateBookingStatus,
+  useEmployees,
+  useSaveEmployee,
+  useDeleteEmployee,
+  useDepartments,
+  useSaveDepartment
+} from "@/hooks/useApi"
 
-// Expanded interface to match the screenshot (Unchanged)
-interface BookingFormData {
-  id: string
-  // Customer details
-  customerType: string // *
-  customerName: string // *
-  phone: string // *
-  email: string
-  address: string
-  taxNumber: string
-  drivingLicenseNumber: string
+// --- LOCAL TYPES ---
+type BookingFormData = Omit<BookingIn, "drivingLicenseExpiry"> & {
   drivingLicenseExpiry?: Date
-  // Car details
-  businessType: string // * (Fixed to 'Car')
-  subType: string // *
-  carNumber: string // *
-  makeAndModel: string // * (Text input)
-  fuelType: string // *
-  transmissionType: string
-  engineNumber: string
-  vinNumber: string
-  variant: string
-  makeYear: string
-  color: string
-  runningPerDay: string
-  // Insurance details
-  insuranceDetails: string
-  // Additional details
-  serviceAdvisor: string // *
-  bookingType: string // *
-  department: string // *
-  customerRemark: string
-  odometer: string // *
-  fuelIndicator: number
-  // Original Booking fields
-  status: "pending" | "confirmed" | "in-progress" | "completed" | "cancelled"
-  // NEW: Added date and time for job card
-  date?: string
-  time?: string
 }
 
-// Interface for the new employee form
-interface NewEmployeeData {
-  designation: string
-  firstName: string
-  lastName: string
-  phone: string
-  email: string
-  address: string
+type NewEmployeeData = Omit<EmployeeIn, "joiningDate" | "exitDate"> & {
   joiningDate?: Date
   exitDate?: Date
-  salary: string
-  bankDetails: string
 }
 
-// Employee interface now includes all details
-interface Employee extends NewEmployeeData {
-  id: string
-}
-
-// UPDATED: initialBookings now uses the full BookingFormData
-const initialBookings: BookingFormData[] = [
-  {
-    id: "BK001",
-    customerType: "Individual",
-    customerName: "John Smith",
-    phone: "555-0101",
-    email: "john@example.com",
-    address: "123 Main St",
-    taxNumber: "",
-    drivingLicenseNumber: "",
-    businessType: "Car",
-    subType: "Sedan",
-    carNumber: "NY-123",
-    makeAndModel: "Oil Change", // Using this field for 'service' as in old data
-    fuelType: "Petrol",
-    transmissionType: "AT",
-    engineNumber: "",
-    vinNumber: "",
-    variant: "",
-    makeYear: "2020",
-    color: "Blue",
-    runningPerDay: "50",
-    insuranceDetails: "",
-    serviceAdvisor: "BALAJI BALAJI",
-    bookingType: "At Workshop",
-    department: "General Service",
-    customerRemark: "Regular maintenance",
-    odometer: "45000",
-    fuelIndicator: 50,
-    status: "confirmed",
-    date: "2024-01-15",
-    time: "09:00 AM",
-  },
-  {
-    id: "BK002",
-    customerType: "Individual",
-    customerName: "Sarah Johnson",
-    phone: "555-0102",
-    email: "sarah@example.com",
-    address: "456 Oak Ave",
-    taxNumber: "",
-    drivingLicenseNumber: "",
-    businessType: "Car",
-    subType: "SUV",
-    carNumber: "CA-456",
-    makeAndModel: "Tire Rotation", // Using this field for 'service' as in old data
-    fuelType: "Diesel",
-    transmissionType: "AT",
-    engineNumber: "",
-    vinNumber: "",
-    variant: "",
-    makeYear: "2019",
-    color: "Red",
-    runningPerDay: "30",
-    insuranceDetails: "",
-    serviceAdvisor: "Harish",
-    bookingType: "Pickup",
-    department: "Quick Lube",
-    customerRemark: "",
-    odometer: "32000",
-    fuelIndicator: 75,
-    status: "pending",
-    date: "2024-01-15",
-    time: "10:30 AM",
-  },
-]
-
-// Default state for the new form (Unchanged)
 const initialFormData: BookingFormData = {
-  id: "",
   customerType: "Individual",
   customerName: "",
   phone: "",
@@ -157,7 +53,7 @@ const initialFormData: BookingFormData = {
   taxNumber: "",
   drivingLicenseNumber: "",
   drivingLicenseExpiry: undefined,
-  businessType: "Car", // Fixed value
+  businessType: "Car",
   subType: "Convertible",
   carNumber: "",
   makeAndModel: "",
@@ -177,9 +73,10 @@ const initialFormData: BookingFormData = {
   odometer: "",
   fuelIndicator: 5,
   status: "pending",
+  date: format(new Date(), "yyyy-MM-dd"),
+  time: format(new Date(), "HH:mm"),
 }
 
-// Initial state for the new employee form (Unchanged)
 const initialNewEmployeeData: NewEmployeeData = {
   designation: "",
   firstName: "",
@@ -193,37 +90,19 @@ const initialNewEmployeeData: NewEmployeeData = {
   bankDetails: "",
 }
 
-// Mock list now uses the full Employee interface
-const mockServiceAdvisors: Employee[] = [
-  { id: "E1", firstName: "BALAJI", lastName: "BALAJI", designation: "SERVICE • SUPERVISOR", phone: "555-0101", email: "balaji@example.com", address: "123 Main St", salary: "50000", bankDetails: "123456789" },
-  { id: "E2", firstName: "Harish", lastName: "", designation: "Workshop • Administrator", phone: "555-0102", email: "harish@example.com", address: "456 Oak Ave", salary: "60000", bankDetails: "987654321" },
-  { id: "E3", firstName: "Karthik", lastName: "", designation: "Workshop • Administrator", phone: "555-0103", email: "karthik@example.com", address: "", salary: "", bankDetails: "" },
-  { id: "E4", firstName: "MUHESH", lastName: "", designation: "Workshop • SERVICE ADVISOR", phone: "555-0104", email: "muhesh@example.com", address: "", salary: "", bankDetails: "" },
-  { id: "E5", firstName: "Shakthivel", lastName: "", designation: "Workshop • Administrator", phone: "555-0105", email: "shakthivel@example.com", address: "", salary: "", bankDetails: "" },
-  { id: "E6", firstName: "VINOTH", lastName: "", designation: "SERVICE • SERVICE ADVISOR", phone: "555-0106", email: "vinoth@example.com", address: "", salary: "", bankDetails: "" },
-  { id: "E7", firstName: "VINOTH", lastName: "KUMAR", designation: "BODYSHOP • BODYSHOP MANAGER", phone: "555-0107", email: "vinoth.k@example.com", address: "", salary: "", bankDetails: "" },
-]
-
-const mockDepartments = ["General Service", "Body Shop", "Quick Lube", "Service", "Workshop", "Bodyshop", "SERVICE ADVISOR", "SUPERVISOR", "Administrator", "BODYSHOP MANAGER"]
-
 export default function BookingsPage() {
   const router = useRouter()
-  const [userRole, setUserRole] = useState<"admin" | "workshop" | null>(null)
+  const { user } = useAuth()
   const [mounted, setMounted] = useState(false)
-  // UPDATED: State now holds the full BookingFormData
-  const [bookings, setBookings] = useState<BookingFormData[]>(initialBookings)
+  
   const [searchTerm, setSearchTerm] = useState("")
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   
   const [formData, setFormData] = useState<BookingFormData>(initialFormData)
 
-  // State for dynamic dropdowns
-  const [serviceAdvisors, setServiceAdvisors] = useState<Employee[]>(mockServiceAdvisors)
-  const [departments, setDepartments] = useState(mockDepartments)
   const [employeeSearch, setEmployeeSearch] = useState("")
 
-  // State for new item modals
   const [isSelectEmployeeOpen, setIsSelectEmployeeOpen] = useState(false)
   const [isAddEmployeeOpen, setIsAddEmployeeOpen] = useState(false)
   const [isAddDepartmentOpen, setIsAddDepartmentOpen] = useState(false)
@@ -231,106 +110,96 @@ export default function BookingsPage() {
   const [newEmployeeData, setNewEmployeeData] = useState<NewEmployeeData>(initialNewEmployeeData)
   const [newItemName, setNewItemName] = useState("")
 
-  // State to track which employee is being edited
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null)
+  
+  const { data: bookings = [], isLoading: isLoadingBookings } = useBookings()
+  const { data: serviceAdvisors = [], isLoading: isLoadingEmployees } = useEmployees()
+  const { data: departments = [], isLoading: isLoadingDepartments } = useDepartments()
+
+  const saveBookingMutation = useSaveBooking()
+  const deleteBookingMutation = useDeleteBooking()
+  const updateStatusMutation = useUpdateBookingStatus()
+  const saveEmployeeMutation = useSaveEmployee()
+  const deleteEmployeeMutation = useDeleteEmployee()
+  const saveDepartmentMutation = useSaveDepartment()
 
   useEffect(() => {
     setMounted(true)
-    const role = localStorage.getItem("userRole") as "admin" | "workshop" | null
-    if (!role || role !== "workshop") {
-      router.push("/dashboard")
+    if (!user) {
+      router.push("/")
     }
-    setUserRole(role)
-
-    // UPDATED: Load bookings from localStorage
-    try {
-      const savedBookings = localStorage.getItem("allBookings")
-      if (savedBookings) {
-        setBookings(JSON.parse(savedBookings))
-      } else {
-        setBookings(initialBookings) // Fallback to initial mocks
-      }
-    } catch (error) {
-      console.error("Failed to parse bookings from localStorage", error)
-      setBookings(initialBookings)
-    }
-  }, [router])
+  }, [router, user])
 
   const filteredBookings = bookings.filter(
     (booking) =>
-      booking.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      booking.id.toLowerCase().includes(searchTerm.toLowerCase()),
+      booking?.customerName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (booking.id || booking._id)?.toLowerCase().includes(searchTerm.toLowerCase()),
   )
 
   const handleAddNew = () => {
     setEditingId(null)
     setFormData({
       ...initialFormData,
-      id: `BK${String(bookings.length + 1).padStart(3, "0")}`,
+      date: format(new Date(), "yyyy-MM-dd"),
+      time: format(new Date(), "HH:mm"),
     })
     setShowForm(true)
   }
 
-  // UPDATED: handleEdit now loads the full booking object into the form
-  const handleEdit = (booking: BookingFormData) => {
-    setEditingId(booking.id)
-    setFormData(booking)
+  const handleEdit = (booking: Booking) => {
+    // Use the correct ID
+    const id = booking.id || booking._id
+    if (!id) return
+
+    setEditingId(id)
+    const { id: _id1, _id: _id2, workshop_id, created_at, updated_at, ...formData } = booking
+    setFormData({
+        ...formData,
+        drivingLicenseExpiry: formData.drivingLicenseExpiry ? parseISO(formData.drivingLicenseExpiry) : undefined,
+    })
     setShowForm(true)
   }
 
-  // UPDATED: handleSave now saves the full formData and stores it in localStorage
   const handleSave = () => {
-    const mandatoryFields: (keyof BookingFormData)[] = [
+    const mandatoryFields: (keyof BookingIn)[] = [
       "customerType", "customerName", "phone", "businessType", "subType",
       "carNumber", "makeAndModel", "fuelType", "serviceAdvisor",
       "bookingType", "department", "odometer"
     ];
     
-    const missingField = mandatoryFields.find(field => !formData[field]);
-
+    const missingField = mandatoryFields.find(field => !formData[field as keyof BookingFormData]);
     if (missingField) {
       alert(`Please fill in all required fields. Missing: ${missingField}`);
       return;
     }
 
-    let updatedBookings: BookingFormData[] = []
-
-    if (editingId) {
-      // Update existing booking
-      const updatedBooking = { ...formData }
-      updatedBookings = bookings.map((b) => (b.id === editingId ? updatedBooking : b))
-      
-    } else {
-      // Add new booking with current date and time
-      const newBooking = {
-        ...formData,
-        date: new Date().toISOString().split("T")[0],
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      }
-      updatedBookings = [...bookings, newBooking]
+    const apiPayload: BookingIn = {
+      ...formData,
+      drivingLicenseExpiry: formData.drivingLicenseExpiry 
+        ? formData.drivingLicenseExpiry.toISOString() 
+        : undefined,
     }
 
-    setBookings(updatedBookings)
-    localStorage.setItem("allBookings", JSON.stringify(updatedBookings)) // Save to localStorage
-
-    setShowForm(false)
-    setFormData(initialFormData)
+    saveBookingMutation.mutate(
+      { data: apiPayload, id: editingId ?? undefined },
+      {
+        onSuccess: () => {
+          setShowForm(false)
+          setFormData(initialFormData)
+          setEditingId(null)
+        }
+      }
+    )
   }
 
-  // UPDATED: handleDelete now also updates localStorage
   const handleDelete = (id: string) => {
     if (confirm("Are you sure you want to delete this booking?")) {
-      const newBookings = bookings.filter((b) => b.id !== id)
-      setBookings(newBookings)
-      localStorage.setItem("allBookings", JSON.stringify(newBookings)) // Update localStorage
+      deleteBookingMutation.mutate(id)
     }
   }
 
-  // UPDATED: handleStatusChange now also updates localStorage
-  const handleStatusChange = (id: string, newStatus: BookingFormData["status"]) => {
-    const newBookings = bookings.map((b) => (b.id === id ? { ...b, status: newStatus } : b))
-    setBookings(newBookings)
-    localStorage.setItem("allBookings", JSON.stringify(newBookings)) // Update localStorage
+  const handleStatusChange = (id: string, newStatus: Booking["status"]) => {
+    updateStatusMutation.mutate({ id, status: newStatus })
   }
   
   const handleFormChange = (field: keyof BookingFormData, value: any) => {
@@ -341,99 +210,99 @@ export default function BookingsPage() {
     setNewEmployeeData(prev => ({ ...prev, [field]: value }))
   }
 
-  // Function to open the edit modal
   const handleEditEmployee = (employee: Employee) => {
-    setEditingEmployee(employee); // Set the employee to edit
-    setNewEmployeeData(employee); // Load all existing data into the form
-    setIsAddEmployeeOpen(true); // Open the modal
-    setIsSelectEmployeeOpen(false); // Close the selection modal
+    setEditingEmployee(employee);
+    const { id, _id, workshop_id, ...editData } = employee
+    setNewEmployeeData({
+        ...editData,
+        joiningDate: editData.joiningDate ? parseISO(editData.joiningDate) : undefined,
+        exitDate: editData.exitDate ? parseISO(editData.exitDate) : undefined,
+    });
+    setIsAddEmployeeOpen(true);
+    setIsSelectEmployeeOpen(false);
   };
 
-  // Now handles both Save and Update
   const handleSaveEmployee = () => {
-    const { firstName, lastName, designation, phone } = newEmployeeData
-    const fullName = `${firstName.trim()} ${lastName.trim()}`.trim()
+    const { firstName, designation, phone } = newEmployeeData
     
     if (!designation || !firstName || !phone) {
       alert("Please fill in Employee designation, First name, and Phone number.")
       return
     }
 
-    if (editingEmployee) {
-      // This is an UPDATE
-      const updatedEmployee: Employee = { ...newEmployeeData, id: editingEmployee.id };
-      setServiceAdvisors(serviceAdvisors.map(emp => 
-        emp.id === editingEmployee.id ? updatedEmployee : emp
-      ));
-      
-      // Update main form if this was the selected advisor
-      const oldFullName = `${editingEmployee.firstName} ${editingEmployee.lastName}`.trim();
-      if (formData.serviceAdvisor === oldFullName) {
-        handleFormChange("serviceAdvisor", fullName);
-      }
-    } else {
-      // This is a NEW employee
-      const newEmployee: Employee = {
+    const apiPayload: EmployeeIn = {
         ...newEmployeeData,
-        id: `E${Date.now()}`,
-      };
-      setServiceAdvisors([...serviceAdvisors, newEmployee]);
-      handleFormChange("serviceAdvisor", fullName); // Select new employee
+        joiningDate: newEmployeeData.joiningDate ? newEmployeeData.joiningDate.toISOString() : undefined,
+        exitDate: newEmployeeData.exitDate ? newEmployeeData.exitDate.toISOString() : undefined,
     }
-    
-    setNewEmployeeData(initialNewEmployeeData); // Reset employee form
-    setEditingEmployee(null); // Clear editing state
-    setIsAddEmployeeOpen(false); // Close create/edit modal
+
+    // Use id or _id
+    const empId = editingEmployee?.id || editingEmployee?._id
+
+    saveEmployeeMutation.mutate(
+      { data: apiPayload, id: empId ?? undefined },
+      {
+        onSuccess: (savedEmployee) => {
+          const fullName = `${savedEmployee.firstName} ${savedEmployee.lastName || ''}`.trim()
+          if (!editingEmployee) {
+            handleFormChange("serviceAdvisor", fullName);
+          }
+          else if (editingEmployee && formData.serviceAdvisor === `${editingEmployee.firstName} ${editingEmployee.lastName || ''}`.trim()) {
+            handleFormChange("serviceAdvisor", fullName);
+          }
+          setNewEmployeeData(initialNewEmployeeData);
+          setEditingEmployee(null);
+          setIsAddEmployeeOpen(false);
+        }
+      }
+    )
   }
 
-  // *** NEW *** Function to delete an employee
   const handleDeleteEmployee = (id: string) => {
     if (confirm("Are you sure you want to delete this employee?")) {
-      const deletedEmployee = serviceAdvisors.find(emp => emp.id === id);
-      
-      setServiceAdvisors(serviceAdvisors.filter((emp) => emp.id !== id));
-      
-      // Also, clear from main form if they were selected
-      if (deletedEmployee) {
-          const fullName = `${deletedEmployee.firstName} ${deletedEmployee.lastName}`.trim();
-          if (formData.serviceAdvisor === fullName) {
-              handleFormChange("serviceAdvisor", "");
+      const deletedEmployee = serviceAdvisors.find(emp => (emp.id === id || emp._id === id));
+      deleteEmployeeMutation.mutate(id, {
+        onSuccess: () => {
+          if (deletedEmployee) {
+              const fullName = `${deletedEmployee.firstName} ${deletedEmployee.lastName || ''}`.trim();
+              if (formData.serviceAdvisor === fullName) {
+                  handleFormChange("serviceAdvisor", "");
+              }
           }
-      }
+        }
+      })
     }
   };
 
   const handleSaveDepartment = () => {
     if (newItemName.trim()) {
-      const newDepartments = [...departments, newItemName.trim()]
-      setDepartments(newDepartments)
-      handleFormChange("department", newItemName.trim())
-      setNewItemName("")
-      setIsAddDepartmentOpen(false)
+      saveDepartmentMutation.mutate(
+        { name: newItemName.trim() },
+        {
+          onSuccess: (savedDept) => {
+            handleFormChange("department", savedDept.name)
+            setNewItemName("")
+            setIsAddDepartmentOpen(false)
+          }
+        }
+      )
     }
   }
 
-  // Filter for employee list now uses first/last name
   const filteredEmployees = serviceAdvisors.filter(emp => 
-    `${emp.firstName} ${emp.lastName}`.toLowerCase().includes(employeeSearch.toLowerCase())
+    `${emp.firstName} ${emp.lastName || ''}`.toLowerCase().includes(employeeSearch.toLowerCase())
   );
 
-  if (!mounted || !userRole) return null
+  if (!mounted || !user) return null
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "confirmed":
-        return "bg-blue-100 text-blue-800"
-      case "pending":
-        return "bg-yellow-100 text-yellow-800"
-      case "in-progress":
-        return "bg-purple-100 text-purple-800"
-      case "completed":
-        return "bg-green-100 text-green-800"
-      case "cancelled":
-        return "bg-red-100 text-red-800"
-      default:
-        return "bg-gray-100 text-gray-800"
+      case "confirmed": return "bg-blue-100 text-blue-800"
+      case "pending": return "bg-yellow-100 text-yellow-800"
+      case "in-progress": return "bg-purple-100 text-purple-800"
+      case "completed": return "bg-green-100 text-green-800"
+      case "cancelled": return "bg-red-100 text-red-800"
+      default: return "bg-gray-100 text-gray-800"
     }
   }
 
@@ -451,7 +320,6 @@ export default function BookingsPage() {
           </Button>
         </div>
 
-        {/* Search & Table */}
         <Card>
           <CardHeader>
             <CardTitle>Search Bookings</CardTitle>
@@ -476,105 +344,111 @@ export default function BookingsPage() {
             <CardDescription>Your scheduled service appointments ({filteredBookings.length})</CardDescription>
           </CardHeader>
           <CardContent>
-            {/* Responsive Table */}
             <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-border">
-                    <th className="text-left py-3 px-4 font-medium text-muted-foreground">Booking ID</th>
-                    <th className="text-left py-3 px-4 font-medium text-muted-foreground">Customer</th>
-                    <th className="text-left py-3 px-4 font-medium text-muted-foreground">Date & Time</th>
-                    <th className="text-left py-3 px-4 font-medium text-muted-foreground">Service</th>
-                    <th className="text-left py-3 px-4 font-medium text-muted-foreground">Status</th>
-                    <th className="text-left py-3 px-4 font-medium text-muted-foreground">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredBookings.length > 0 ? (
-                    // UPDATED: Table now maps over full BookingFormData
-                    filteredBookings.map((booking) => (
-                      <tr
-                        key={booking.id}
-                        className="border-b border-border hover:bg-muted/50 transition-colors"
-                      >
-                        <td 
-                          className="py-3 px-4 text-sm font-medium text-foreground cursor-pointer"
-                          onClick={() => router.push(`/dashboard/bookings/${booking.id}`)}
-                        >
-                          {booking.id}
-                        </td>
-                        <td className="py-3 px-4">
-                          <div className="text-sm font-medium text-foreground">{booking.customerName}</div>
-                          <div className="text-xs text-muted-foreground flex items-center gap-1">
-                            <Phone className="w-3 h-3" />
-                            {booking.phone}
-                          </div>
-                        </td>
-                        <td className="py-3 px-4">
-                          <div className="text-sm text-foreground flex items-center gap-1">
-                            <CalendarIcon className="w-4 h-4" />
-                            {booking.date ? `${booking.date} ${booking.time}` : 'N/A'}
-                          </div>
-                        </td>
-                        <td className="py-3 px-4 text-sm text-foreground">{booking.makeAndModel}</td>
-                        <td className="py-3 px-4">
-                          <select
-                            value={booking.status}
-                            onClick={(e) => e.stopPropagation()} // Prevent row click
-                            onChange={(e) => {
-                              e.stopPropagation();
-                              handleStatusChange(booking.id, e.target.value as BookingFormData["status"])
-                            }}
-                            className={`px-3 py-1 rounded-full text-xs font-medium border-0 cursor-pointer ${getStatusColor(booking.status)}`}
+              {isLoadingBookings ? (
+                <div className="flex justify-center items-center h-40">
+                  <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                </div>
+              ) : (
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-border">
+                      <th className="text-left py-3 px-4 font-medium text-muted-foreground">Booking ID</th>
+                      <th className="text-left py-3 px-4 font-medium text-muted-foreground">Customer</th>
+                      <th className="text-left py-3 px-4 font-medium text-muted-foreground">Date & Time</th>
+                      <th className="text-left py-3 px-4 font-medium text-muted-foreground">Service</th>
+                      <th className="text-left py-3 px-4 font-medium text-muted-foreground">Status</th>
+                      <th className="text-left py-3 px-4 font-medium text-muted-foreground">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredBookings.length > 0 ? (
+                      filteredBookings.map((booking, index) => {
+                        // --- FIX: Correctly determine ID ---
+                        const bookingId = booking.id || booking._id || ""
+                        return (
+                          <tr
+                            key={bookingId || index}
+                            onClick={() => bookingId && router.push(`/dashboard/bookings/${bookingId}`)}
+                            className="border-b border-border hover:bg-muted/50 transition-colors cursor-pointer"
                           >
-                            <option value="pending">Pending</option>
-                            <option value="confirmed">Confirmed</option>
-                            <option value="in-progress">In Progress</option>
-                            <option value="completed">Completed</option>
-                            <option value="cancelled">Cancelled</option>
-                          </select>
-                        </td>
-                        <td className="py-3 px-4 flex gap-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleEdit(booking);
-                            }}
-                            className="hover:bg-primary/10"
-                          >
-                            <Edit2 className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDelete(booking.id);
-                            }}
-                            className="hover:bg-destructive/10"
-                          >
-                            <Trash2 className="w-4 h-4 text-destructive" />
-                          </Button>
+                            <td className="py-3 px-4 text-sm font-medium text-primary hover:underline">
+                              {bookingId ? bookingId.slice(-6).toUpperCase() : 'N/A'}
+                            </td>
+                            <td className="py-3 px-4">
+                              <div className="text-sm font-medium text-foreground">{booking.customerName}</div>
+                              <div className="text-xs text-muted-foreground flex items-center gap-1">
+                                <Phone className="w-3 h-3" />
+                                {booking.phone}
+                              </div>
+                            </td>
+                            <td className="py-3 px-4">
+                              <div className="text-sm text-foreground flex items-center gap-1">
+                                <CalendarIcon className="w-4 h-4" />
+                                {booking.date ? `${booking.date} ${booking.time}` : 'N/A'}
+                              </div>
+                            </td>
+                            <td className="py-3 px-4 text-sm text-foreground">{booking.makeAndModel}</td>
+                            <td className="py-3 px-4">
+                              <select
+                                value={booking.status}
+                                onClick={(e) => e.stopPropagation()}
+                                onChange={(e) => {
+                                  e.stopPropagation();
+                                  if(bookingId) handleStatusChange(bookingId, e.target.value as Booking["status"])
+                                }}
+                                className={`px-3 py-1 rounded-full text-xs font-medium border-0 cursor-pointer ${getStatusColor(booking.status)}`}
+                              >
+                                <option value="pending">Pending</option>
+                                <option value="confirmed">Confirmed</option>
+                                <option value="in-progress">In Progress</option>
+                                <option value="completed">Completed</option>
+                                <option value="cancelled">Cancelled</option>
+                              </select>
+                            </td>
+                            <td className="py-3 px-4 flex gap-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={(e) => { e.stopPropagation(); handleEdit(booking); }}
+                                className="hover:bg-primary/10"
+                              >
+                                <Edit2 className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={(e) => { e.stopPropagation(); if(bookingId) handleDelete(bookingId); }}
+                                className="hover:bg-destructive/10"
+                              >
+                                <Trash2 className="w-4 h-4 text-destructive" />
+                              </Button>
+                            </td>
+                          </tr>
+                        )
+                      })
+                    ) : (
+                      <tr>
+                        <td colSpan={6} className="py-8 text-center text-muted-foreground">
+                          {isLoadingBookings 
+                            ? "Loading bookings..." 
+                            : (searchTerm 
+                                ? "No bookings match your search." 
+                                : "You have no bookings yet. Click 'New Booking' to start."
+                              )
+                          }
                         </td>
                       </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan={6} className="py-8 text-center text-muted-foreground">
-                        No bookings found
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+                    )}
+                  </tbody>
+                </table>
+              )}
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* NEW BOOKING FORM MODAL --- MOVED HERE --- */}
+      {/* NEW BOOKING FORM MODAL - No changes needed within form logic, just re-rendered for completeness */}
       {showForm && (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-black/30 backdrop-blur-sm p-4 md:p-8">
           <Card className="max-w-6xl mx-auto shadow-2xl border-primary/20 w-full">
@@ -584,18 +458,17 @@ export default function BookingsPage() {
                 <X className="w-5 h-5" />
               </button>
             </CardHeader>
-            <CardContent className="p-6 bg-card rounded-b-lg">
-              <div className="space-y-4">
+            <CardContent className="p-6 bg-card rounded-b-lg max-h-[85vh] overflow-y-auto">
+              <div className="space-y-6">
                 {/* Customer details */}
                 <div className="space-y-4">
                   <h3 className="text-lg font-medium text-foreground border-b pb-2">Customer details</h3>
-                  {/* Responsive Grid */}
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="customerType">Customer type *</Label>
                         <Select value={formData.customerType} onValueChange={(v) => handleFormChange("customerType", v)}>
                           <SelectTrigger id="customerType" className="w-full"><SelectValue placeholder="Select type" /></SelectTrigger>
-                          <SelectContent className="w-full min-w-[var(--radix-select-trigger-width)] bg-white">
+                          <SelectContent>
                             <SelectItem value="Individual">Individual</SelectItem>
                             <SelectItem value="Corporate">Corporate</SelectItem>
                           </SelectContent>
@@ -634,7 +507,7 @@ export default function BookingsPage() {
                               {formData.drivingLicenseExpiry ? format(formData.drivingLicenseExpiry, "PPP") : <span>Pick a date</span>}
                             </Button>
                           </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0 bg-white" align="start">
+                          <PopoverContent className="w-auto p-0" align="start">
                             <Calendar mode="single" selected={formData.drivingLicenseExpiry} onSelect={(d) => handleFormChange("drivingLicenseExpiry", d)} initialFocus />
                           </PopoverContent>
                         </Popover>
@@ -645,7 +518,6 @@ export default function BookingsPage() {
                 {/* Car details */}
                 <div className="space-y-4">
                   <h3 className="text-lg font-medium text-foreground border-b pb-2">Car details</h3>
-                  {/* Responsive Grid */}
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="businessType">Business type *</Label>
@@ -655,7 +527,7 @@ export default function BookingsPage() {
                         <Label htmlFor="subType">Sub type *</Label>
                           <Select value={formData.subType} onValueChange={(v) => handleFormChange("subType", v)}>
                           <SelectTrigger id="subType" className="w-full"><SelectValue placeholder="Select sub-type" /></SelectTrigger>
-                          <SelectContent className="w-full min-w-[var(--radix-select-trigger-width)] bg-white">
+                          <SelectContent>
                             <SelectItem value="Convertible">Convertible</SelectItem>
                             <SelectItem value="Coupe">Coupe</SelectItem>
                             <SelectItem value="Hatchback">Hatchback</SelectItem>
@@ -681,7 +553,7 @@ export default function BookingsPage() {
                         <Label htmlFor="fuelType">Fuel type *</Label>
                         <Select value={formData.fuelType} onValueChange={(v) => handleFormChange("fuelType", v)}>
                           <SelectTrigger id="fuelType" className="w-full"><SelectValue placeholder="Select fuel type" /></SelectTrigger>
-                          <SelectContent className="w-full min-w-[var(--radix-select-trigger-width)] bg-white">
+                          <SelectContent>
                             <SelectItem value="Petrol">Petrol</SelectItem>
                             <SelectItem value="Diesel">Diesel</SelectItem>
                             <SelectItem value="EV">EV</SelectItem>
@@ -693,7 +565,7 @@ export default function BookingsPage() {
                         <Label htmlFor="transmissionType">Transmission type</Label>
                         <Select value={formData.transmissionType} onValueChange={(v) => handleFormChange("transmissionType", v)}>
                           <SelectTrigger id="transmissionType" className="w-full"><SelectValue placeholder="Select transmission" /></SelectTrigger>
-                          <SelectContent className="w-full min-w-[var(--radix-select-trigger-width)] bg-white">
+                          <SelectContent>
                             <SelectItem value="AT">AT</SelectItem>
                             <SelectItem value="MT">MT</SelectItem>
                           </SelectContent>
@@ -739,25 +611,21 @@ export default function BookingsPage() {
                 {/* Additional details */}
                 <div className="space-y-4">
                   <h3 className="text-lg font-medium text-foreground border-b pb-2">Additional details</h3>
-                  {/* Responsive Grid */}
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     
-                    {/* UPDATED Service Advisor Field */}
                     <div className="space-y-2">
                       <Label htmlFor="serviceAdvisor">Service advisor *</Label>
                       <Button
                         id="serviceAdvisor"
                         variant="outline"
-                        className={`w-full justify-start text-left font-normal hover:bg-primary hover:text-white group ${
+                        type="button"
+                        className={`w-full justify-start text-left font-normal ${
                           formData.serviceAdvisor ? "text-foreground" : "text-muted-foreground"
                         }`}
                         onClick={() => setIsSelectEmployeeOpen(true)}
+                        disabled={isLoadingEmployees}
                       >
-                        {formData.serviceAdvisor ? (
-                          <span className="group-hover:text-white">{formData.serviceAdvisor}</span>
-                        ) : (
-                          <span className="group-hover:text-white">Select advisor</span>
-                        )}
+                        {isLoadingEmployees ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : formData.serviceAdvisor || "Select advisor"}
                       </Button>
                     </div>
 
@@ -765,7 +633,7 @@ export default function BookingsPage() {
                       <Label htmlFor="bookingType">Booking type *</Label>
                       <Select value={formData.bookingType} onValueChange={(v) => handleFormChange("bookingType", v)}>
                         <SelectTrigger id="bookingType" className="w-full"><SelectValue placeholder="Select type" /></SelectTrigger>
-                        <SelectContent className="w-full min-w-[var(--radix-select-trigger-width)] bg-white">
+                        <SelectContent>
                           <SelectItem value="At Workshop">At Workshop</SelectItem>
                           <SelectItem value="Pickup">Pickup</SelectItem>
                         </SelectContent>
@@ -775,12 +643,14 @@ export default function BookingsPage() {
                       <Label htmlFor="department">Department *</Label>
                       <div className="flex items-center gap-2">
                         <Select value={formData.department} onValueChange={(v) => handleFormChange("department", v)}>
-                          <SelectTrigger id="department" className="w-full"><SelectValue placeholder="Select department" /></SelectTrigger>
-                          <SelectContent className="w-full min-w-[var(--radix-select-trigger-width)] bg-white">
-                            {departments.map(name => <SelectItem key={name} value={name}>{name}</SelectItem>)}
+                          <SelectTrigger id="department" className="w-full" disabled={isLoadingDepartments}>
+                            <SelectValue placeholder={isLoadingDepartments ? "Loading..." : "Select department"} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {departments.map(dept => <SelectItem key={dept.id || dept._id} value={dept.name}>{dept.name}</SelectItem>)}
                           </SelectContent>
                         </Select>
-                        <Button variant="outline" size="icon" onClick={() => setIsAddDepartmentOpen(true)}><Plus className="w-4 h-4" /></Button>
+                        <Button type="button" variant="outline" size="icon" onClick={() => setIsAddDepartmentOpen(true)}><Plus className="w-4 h-4" /></Button>
                       </div>
                     </div>
                     <div className="space-y-2 md:col-span-3">
@@ -806,10 +676,13 @@ export default function BookingsPage() {
                 </div>
               </div>
               
-              {/* Form Actions */}
               <div className="flex gap-2 mt-8 border-t pt-6">
-                <Button onClick={handleSave} className="bg-primary hover:bg-primary/90">
-                  <Check className="w-4 h-4 mr-2" />
+                <Button 
+                  onClick={handleSave} 
+                  className="bg-primary hover:bg-primary/90"
+                  disabled={saveBookingMutation.isPending}
+                >
+                  {saveBookingMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />} 
                   Save Booking
                 </Button>
                 <Button onClick={() => setShowForm(false)} variant="outline">
@@ -827,8 +700,8 @@ export default function BookingsPage() {
           <DialogHeader className="flex-row items-center justify-between pr-8">
             <DialogTitle>Employee</DialogTitle>
             <Button size="sm" onClick={() => {
-              setEditingEmployee(null); // Ensure we are creating, not editing
-              setNewEmployeeData(initialNewEmployeeData); // Clear form
+              setEditingEmployee(null);
+              setNewEmployeeData(initialNewEmployeeData);
               setIsAddEmployeeOpen(true);
             }}>
               <Plus className="w-4 h-4 mr-2" />
@@ -845,56 +718,61 @@ export default function BookingsPage() {
             />
           </div>
           <div className="space-y-2 flex-1 overflow-y-auto mt-4">
-            {/* UPDATED Employee list item with Edit button */}
-            {filteredEmployees.map(emp => {
-              const fullName = `${emp.firstName} ${emp.lastName}`.trim();
-              return (
-                <div
-                  key={emp.id}
-                  className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-muted group"
-                >
-                  <button
-                    className="flex-1 flex items-center gap-3 text-left focus:outline-none"
-                    onClick={() => {
-                      handleFormChange("serviceAdvisor", fullName);
-                      setIsSelectEmployeeOpen(false);
-                    }}
+            {isLoadingEmployees ? (
+              <div className="flex justify-center items-center h-32">
+                  <Loader2 className="w-6 h-6 animate-spin text-primary" />
+              </div>
+            ) : (
+              filteredEmployees.map(emp => {
+                const fullName = `${emp.firstName} ${emp.lastName || ''}`.trim();
+                const empId = emp.id || emp._id
+                return (
+                  <div
+                    key={empId}
+                    className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-muted group"
                   >
-                    <Avatar className="h-9 w-9">
-                      <AvatarFallback>{emp.firstName.charAt(0).toUpperCase()}</AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium">{fullName}</p>
-                      <p className="text-xs text-muted-foreground">{emp.designation}</p>
-                    </div>
-                  </button>
-                  
-                  {/* NEW Dropdown menu for Edit action */}
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="w-8 h-8 opacity-0 group-hover:opacity-100 focus-visible:ring-0" // Removed focus ring
-                        onClick={(e) => e.stopPropagation()} // Stop propagation
-                      >
-                        <MoreVertical className="w-4 h-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent onClick={(e) => e.stopPropagation()} className="bg-white" align="end">
-                      <DropdownMenuItem onClick={() => handleEditEmployee(emp)}>
-                        <Edit2 className="w-4 h-4 mr-2" />
-                        Edit
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleDeleteEmployee(emp.id)} className="text-destructive" variant="destructive">
-                        <Trash2 className="w-4 h-4 mr-2" />
-                        Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              )
-            })}
+                    <button
+                      className="flex-1 flex items-center gap-3 text-left focus:outline-none"
+                      onClick={() => {
+                        handleFormChange("serviceAdvisor", fullName);
+                        setIsSelectEmployeeOpen(false);
+                      }}
+                    >
+                      <Avatar className="h-9 w-9">
+                        <AvatarFallback>{emp.firstName.charAt(0).toUpperCase()}</AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1">
+                        <p className="text-sm font-medium">{fullName}</p>
+                        <p className="text-xs text-muted-foreground">{emp.designation}</p>
+                      </div>
+                    </button>
+                    
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="w-8 h-8 opacity-0 group-hover:opacity-100 focus-visible:ring-0"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <MoreVertical className="w-4 h-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent onClick={(e) => e.stopPropagation()} align="end">
+                        <DropdownMenuItem onClick={() => handleEditEmployee(emp)}>
+                          <Edit2 className="w-4 h-4 mr-2" />
+                          Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => empId && handleDeleteEmployee(empId)} className="text-destructive" variant="destructive">
+                          <Trash2 className="w-4 h-4 mr-2" />
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                )
+              })
+            )}
           </div>
         </DialogContent>
       </Dialog>
@@ -905,15 +783,15 @@ export default function BookingsPage() {
           <DialogHeader>
             <DialogTitle>{editingEmployee ? "Edit employee" : "Create employee"}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 flex-1 overflow-y-auto px-1">
+          <div className="space-y-4 flex-1 overflow-y-auto px-1 py-4">
             <div className="space-y-2">
               <Label htmlFor="designation">Employee designation *</Label>
               <Select value={newEmployeeData.designation} onValueChange={(v) => handleNewEmployeeChange("designation", v)}>
                 <SelectTrigger id="designation" className="w-full">
                   <SelectValue placeholder="Select designation" />
                 </SelectTrigger>
-                <SelectContent className="w-full min-w-[var(--radix-select-trigger-width)] bg-white">
-                  {departments.map(name => <SelectItem key={name} value={name}>{name}</SelectItem>)}
+                <SelectContent>
+                  {departments.map(dept => <SelectItem key={dept.id || dept._id} value={dept.name}>{dept.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -971,10 +849,10 @@ export default function BookingsPage() {
                 <PopoverTrigger asChild>
                   <Button id="joiningDate" variant="outline" className="w-full justify-start text-left font-normal">
                     <CalendarIcon className="mr-2 h-4 w-4" />
-                    {newEmployeeData.joiningDate ? format(new Date(newEmployeeData.joiningDate), "PPP") : <span>Pick a date</span>}
+                    {newEmployeeData.joiningDate ? format(newEmployeeData.joiningDate, "PPP") : <span>Pick a date</span>}
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-auto p-0 bg-white" align="start">
+                <PopoverContent className="w-auto p-0" align="start">
                   <Calendar mode="single" selected={newEmployeeData.joiningDate} onSelect={(d) => handleNewEmployeeChange("joiningDate", d)} initialFocus />
                 </PopoverContent>
               </Popover>
@@ -985,10 +863,10 @@ export default function BookingsPage() {
                 <PopoverTrigger asChild>
                   <Button id="exitDate" variant="outline" className="w-full justify-start text-left font-normal">
                     <CalendarIcon className="mr-2 h-4 w-4" />
-                    {newEmployeeData.exitDate ? format(new Date(newEmployeeData.exitDate), "PPP") : <span>Pick a date</span>}
+                    {newEmployeeData.exitDate ? format(newEmployeeData.exitDate, "PPP") : <span>Pick a date</span>}
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-auto p-0 bg-white" align="start">
+                <PopoverContent className="w-auto p-0" align="start">
                   <Calendar mode="single" selected={newEmployeeData.exitDate} onSelect={(d) => handleNewEmployeeChange("exitDate", d)} initialFocus />
                 </PopoverContent>
               </Popover>
@@ -1018,14 +896,20 @@ export default function BookingsPage() {
               setNewEmployeeData(initialNewEmployeeData); 
               setEditingEmployee(null); 
             }}>Cancel</Button>
-            <Button onClick={handleSaveEmployee}>Save Details</Button>
+            <Button 
+              onClick={handleSaveEmployee}
+              disabled={saveEmployeeMutation.isPending}
+            >
+              {saveEmployeeMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
+              Save Details
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Add Department Modal */}
       <Dialog open={isAddDepartmentOpen} onOpenChange={setIsAddDepartmentOpen}>
-        <DialogContent className="sm:max-w-md bg-white">
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Add New Department</DialogTitle>
           </DialogHeader>
@@ -1040,7 +924,13 @@ export default function BookingsPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => { setIsAddDepartmentOpen(false); setNewItemName(""); }}>Cancel</Button>
-            <Button onClick={handleSaveDepartment}>Save Department</Button>
+            <Button 
+              onClick={handleSaveDepartment}
+              disabled={saveDepartmentMutation.isPending}
+            >
+              {saveDepartmentMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
+              Save Department
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

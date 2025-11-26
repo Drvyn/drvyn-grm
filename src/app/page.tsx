@@ -3,8 +3,6 @@
 import type React from "react"
 import { useState, useEffect } from "react"
 
-// Import Firebase Auth functions
-import { initializeApp } from "firebase/app"
 import {
   getAuth,
   createUserWithEmailAndPassword,
@@ -13,6 +11,7 @@ import {
   onAuthStateChanged,
   sendEmailVerification,
 } from "firebase/auth"
+import { auth } from "@/lib/firebase"
 
 // Import Toast
 import { ToastContainer, toast, Slide } from 'react-toastify';
@@ -25,20 +24,6 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { LogIn, UserPlus, Mail, Lock, Building, Eye, EyeOff, Loader2, AlertCircle, CheckCircle2, Shield, Wrench, Sparkles, PartyPopper, Rocket } from "lucide-react" 
 
-const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
-}
-
-// Initialize Firebase
-const app = initializeApp(firebaseConfig)
-const auth = getAuth(app)
-// --- End Firebase Initialization ---
 
 // Password validation helper
 const validatePassword = (password: string) => {

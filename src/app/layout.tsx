@@ -4,6 +4,7 @@ import { Geist, Geist_Mono } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import AIAssistant from "@/components/ai-assistant"
 import "./globals.css"
+import { AppProviders } from "@/contexts/AppProviders" 
 
 const _geist = Geist({ subsets: ["latin"] })
 const _geistMono = Geist_Mono({ subsets: ["latin"] })
@@ -22,9 +23,11 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`font-sans antialiased`}>
-        {children}
-        <AIAssistant />
-        <Analytics />
+        <AppProviders> 
+          {children}
+          <AIAssistant />
+          <Analytics />
+        </AppProviders> 
       </body>
     </html>
   )

@@ -19,6 +19,7 @@ import {
   Edit2,
   Upload,
   UserPlus,
+  Loader2, 
 } from "lucide-react"
 import DashboardLayout from "@/components/dashboard-layout"
 import {
@@ -31,43 +32,9 @@ import {
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
+import { useBookingById } from "@/hooks/useApi"
 
 // --- Interfaces ---
-
-// This interface is from the bookings/page.tsx
-interface BookingFormData {
-  id: string
-  customerType: string
-  customerName: string
-  phone: string
-  email: string
-  address: string
-  taxNumber: string
-  drivingLicenseNumber: string
-  drivingLicenseExpiry?: Date
-  businessType: string
-  subType: string
-  carNumber: string
-  makeAndModel: string
-  fuelType: string
-  transmissionType: string
-  engineNumber: string
-  vinNumber: string
-  variant: string
-  makeYear: string
-  color: string
-  runningPerDay: string
-  insuranceDetails: string
-  serviceAdvisor: string
-  bookingType: string
-  department: string
-  customerRemark: string
-  odometer: string
-  fuelIndicator: number
-  status: "pending" | "confirmed" | "in-progress" | "completed" | "cancelled"
-  date?: string
-  time?: string
-}
 
 interface SparePartItem {
   id: string
@@ -124,7 +91,6 @@ const initialPartState: SparePartItem = {
   taxPercent: 0,
 }
 
-// UPDATED: Initial jobCard state is now mostly empty, waiting for booking data
 const initialJobCardState: JobCard = {
   id: "",
   bookingId: "",
@@ -135,9 +101,9 @@ const initialJobCardState: JobCard = {
   service: "",
   date: "",
   time: "",
-  assignedMechanic: mockMechanics[0], // Default to first mechanic
-  spareParts: [], // Start empty
-  services: [], // Start empty
+  assignedMechanic: mockMechanics[0],
+  spareParts: [],
+  services: [],
   notes: "",
 }
 
@@ -149,7 +115,7 @@ export default function JobCardPage() {
   const [userRole, setUserRole] = useState<"admin" | "workshop" | null>(null)
   const [mounted, setMounted] = useState(false)
   
-  // UPDATED: Job card state starts empty
+  // Job card state starts empty
   const [jobCard, setJobCard] = useState<JobCard>(initialJobCardState)
 
   // --- New State Variables ---
@@ -171,6 +137,9 @@ export default function JobCardPage() {
   const [currentPart, setCurrentPart] =
     useState<SparePartItem>(initialPartState)
 
+  // 1. Fetch booking data using the hook
+  const { data: apiBooking, isLoading, isError } = useBookingById(bookingId)
+
   useEffect(() => {
     setMounted(true)
     const role = localStorage.getItem("userRole") as "admin" | "workshop" | null
@@ -180,43 +149,32 @@ export default function JobCardPage() {
     }
     setUserRole(role)
 
-    // UPDATED: Fetch booking data from localStorage
-    if (bookingId) {
-      try {
-        const allBookings: BookingFormData[] = JSON.parse(localStorage.getItem("allBookings") || "[]")
-        const currentBooking = allBookings.find(b => b.id === bookingId)
+    // 2. Populate form when API data is available
+    if (apiBooking) {
+      // Use robust ID check
+      const bId = apiBooking.id || apiBooking._id || "UNKNOWN"
+      
+      setJobCard({
+        id: `JC${bId.slice(-6).toUpperCase()}`, 
+        bookingId: bId,
+        customer: apiBooking.customerName,
+        phone: apiBooking.phone,
+        email: apiBooking.email || "",
+        vehicle: `${apiBooking.makeYear || ''} ${apiBooking.makeAndModel} ${apiBooking.color || ''}`.trim(),
+        service: apiBooking.bookingType || "Service", 
+        date: apiBooking.date || new Date().toISOString().split("T")[0],
+        time: apiBooking.time || "09:00",
+        assignedMechanic: apiBooking.serviceAdvisor || mockMechanics[0],
+        notes: apiBooking.customerRemark || "",
+        spareParts: [],
+        services: [],
+      })
 
-        if (currentBooking) {
-          // Populate job card state from the found booking
-          setJobCard({
-            id: `JC${currentBooking.id}`, // Create Job Card ID from Booking ID
-            bookingId: currentBooking.id,
-            customer: currentBooking.customerName,
-            phone: currentBooking.phone,
-            email: currentBooking.email,
-            vehicle: `${currentBooking.makeYear} ${currentBooking.makeAndModel} - ${currentBooking.color || ''}`.trim(),
-            service: currentBooking.makeAndModel, // Use Make & Model as the service description
-            date: currentBooking.date || new Date().toISOString().split("T")[0],
-            time: currentBooking.time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            assignedMechanic: currentBooking.serviceAdvisor || mockMechanics[0],
-            notes: currentBooking.customerRemark,
-            spareParts: [], // Start with no parts
-            services: [],  // Start with no services
-          })
-          // You could also pre-populate issues from remarks
-          if (currentBooking.customerRemark) {
-            setIssues([currentBooking.customerRemark])
-          }
-        } else {
-          console.error("Booking not found")
-          // Optionally redirect if no booking is found
-          // router.push("/dashboard/bookings")
-        }
-      } catch (error) {
-        console.error("Failed to load booking data", error)
+      if (apiBooking.customerRemark && issues.length === 0) {
+        setIssues([apiBooking.customerRemark])
       }
     }
-  }, [router, bookingId])
+  }, [router, apiBooking])
 
   // --- Summary Calculations ---
   const partsSubtotal = jobCard.spareParts.reduce(
@@ -337,16 +295,35 @@ export default function JobCardPage() {
     })
   }
 
-  // THIS IS THE KEY FUNCTION FOR THE NEXT STEP
   const handleGenerateInvoice = () => {
-    // Save the current job card data (with added parts/services) to localStorage
     localStorage.setItem("jobCardData", JSON.stringify(jobCard))
-    // Redirect to the invoices page with a query param
-    // NOTE: We use jobCard.bookingId to match the invoice page logic
     router.push(`/dashboard/invoices?jobCardId=${jobCard.bookingId}`)
   }
 
   if (!mounted || !userRole) return null
+
+  if (isLoading) {
+    return (
+      <DashboardLayout>
+        <div className="flex h-[50vh] items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </DashboardLayout>
+    )
+  }
+
+  if (isError || !apiBooking) {
+    return (
+      <DashboardLayout>
+        <div className="flex h-[50vh] flex-col items-center justify-center gap-4">
+          <p className="text-destructive">Failed to load booking data.</p>
+          <Button variant="outline" onClick={() => router.back()}>
+            Go Back
+          </Button>
+        </div>
+      </DashboardLayout>
+    )
+  }
 
   return (
     <DashboardLayout>
@@ -519,7 +496,7 @@ export default function JobCardPage() {
           </Card>
         </div>
 
-        {/* UPDATED: Spare Parts Table */}
+        {/* Spare Parts Table */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0">
             <div>
@@ -617,7 +594,7 @@ export default function JobCardPage() {
           </CardContent>
         </Card>
 
-        {/* UPDATED: Services (Labor) Table */}
+        {/* Services (Labor) Table */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0">
             <div>
@@ -712,7 +689,7 @@ export default function JobCardPage() {
           </CardContent>
         </Card>
 
-        {/* NEW: Uploads & Signature */}
+        {/* Uploads & Signature */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <Card>
             <CardHeader>
@@ -746,7 +723,7 @@ export default function JobCardPage() {
           </Card>
         </div>
 
-        {/* UPDATED: Totals & Actions */}
+        {/* Totals & Actions */}
         <Card className="border-primary/50 bg-primary/5">
           <CardHeader>
             <CardTitle className="text-lg">Summary</CardTitle>
