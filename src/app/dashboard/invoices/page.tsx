@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useEffect } from "react"
-// UPDATED: Import useSearchParams and useRouter
 import { useRouter, useSearchParams } from "next/navigation"
 import {
   Card,
@@ -12,28 +11,12 @@ import {
 } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Plus, Search, Download, Eye, X, Check } from "lucide-react" 
+import { Plus, Search, Download, Eye, X, Check, Trash2, Loader2 } from "lucide-react" 
 import DashboardLayout from "@/components/dashboard-layout"
+import { useAuth } from "@/contexts/AppProviders"
+import { useInvoices, useSaveInvoice, useDeleteInvoice, Invoice, InvoiceIn } from "@/hooks/useApi"
 
-interface InvoiceItem {
-  description: string
-  quantity: number
-  unitPrice: number
-}
-
-interface Invoice {
-  id: string
-  jobCardId: string
-  customer: string
-  amount: number
-  items: InvoiceItem[]
-  date: string
-  dueDate: string
-  status: "draft" | "sent" | "paid" | "overdue"
-  notes: string
-}
-
-// Interface for JobCard data coming from localStorage
+// Interface for JobCard data coming from localStorage (Job Card Page)
 interface JobCardData {
   id: string
   bookingId: string
@@ -43,85 +26,30 @@ interface JobCardData {
     name: string
     quantity: number
     price: number
-    taxPercent: number // We'll ignore tax for simplicity here, but it could be added
+    taxPercent: number 
   }[]
   services: {
     description: string
     cost: number
-    taxPercent: number // We'll ignore tax for simplicity here
+    taxPercent: number 
   }[]
 }
 
-
-const initialInvoices: Invoice[] = [
-  {
-    id: "INV-2024-001",
-    jobCardId: "JC001",
-    customer: "John Smith",
-    amount: 90,
-    items: [
-      { description: "Oil Change Service", quantity: 1, unitPrice: 45 },
-      { description: "Oil Filter", quantity: 1, unitPrice: 15 },
-      { description: "Labor", quantity: 1, unitPrice: 30 },
-    ],
-    date: "2024-01-10",
-    dueDate: "2024-01-24",
-    status: "paid",
-    notes: "Thank you for your business!",
-  },
-  {
-    id: "INV-2024-002",
-    jobCardId: "JC002",
-    customer: "Sarah Johnson",
-    amount: 90,
-    items: [
-      { description: "Tire Rotation Service", quantity: 1, unitPrice: 50 },
-      { description: "Labor", quantity: 1, unitPrice: 40 },
-    ],
-    date: "2024-01-15",
-    dueDate: "2024-01-29",
-    status: "sent",
-    notes: "Payment due within 14 days",
-  },
-  {
-    id: "INV-2024-003",
-    jobCardId: "JC003",
-    customer: "Mike Davis",
-    amount: 240,
-    items: [
-      { description: "Brake Inspection", quantity: 1, unitPrice: 60 },
-      { description: "Brake Pads", quantity: 1, unitPrice: 80 },
-      { description: "Brake Fluid", quantity: 1, unitPrice: 25 },
-      { description: "Labor", quantity: 1, unitPrice: 75 },
-    ],
-    date: "2024-01-16",
-    dueDate: "2024-01-30",
-    status: "draft",
-    notes: "Pending approval",
-  },
-]
-
-// UPDATED: Wrap component in a Suspense boundary (in layout) or use this pattern
-// This is necessary because useSearchParams is a Client Component hook
-// We'll wrap the main component logic in a child component
 export default function InvoicesPageWrapper() {
-  // If your app uses Suspense, you can wrap this page in a <Suspense> component
-  // in your layout. For this to work without modifying layout, we create a child component.
   return <InvoicesPage />
 }
 
 function InvoicesPage() {
   const router = useRouter()
-  const searchParams = useSearchParams() // Get URL search params
+  const searchParams = useSearchParams() 
+  const { user } = useAuth()
 
-  const [userRole, setUserRole] = useState<"admin" | "workshop" | null>(null)
   const [mounted, setMounted] = useState(false)
-  const [invoices, setInvoices] = useState<Invoice[]>(initialInvoices)
   const [searchTerm, setSearchTerm] = useState("")
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [formData, setFormData] = useState<Invoice>({
-    id: "",
+  
+  const [formData, setFormData] = useState<InvoiceIn>({
     jobCardId: "",
     customer: "",
     amount: 0,
@@ -134,30 +62,19 @@ function InvoicesPage() {
     notes: "",
   })
 
+  // --- API Hooks ---
+  const { data: invoices = [], isLoading } = useInvoices()
+  const saveInvoiceMutation = useSaveInvoice()
+  const deleteInvoiceMutation = useDeleteInvoice()
+
   useEffect(() => {
     setMounted(true)
-    const role = localStorage.getItem("userRole") as "admin" | "workshop" | null
-    if (!role || role !== "workshop") {
-      router.push("/dashboard")
+    if (!user) {
+      router.push("/")
       return
     }
-    setUserRole(role)
 
-    // UPDATED: Load invoices from localStorage
-    try {
-      const savedInvoices = localStorage.getItem("allInvoices")
-      if (savedInvoices) {
-        setInvoices(JSON.parse(savedInvoices))
-      } else {
-        setInvoices(initialInvoices)
-      }
-    } catch (error) {
-      console.error("Failed to load invoices", error)
-      setInvoices(initialInvoices)
-    }
-
-
-    // UPDATED: Check for jobCardId from URL
+    // Check for jobCardId from URL
     const jobCardId = searchParams.get("jobCardId")
     if (jobCardId) {
       const data = localStorage.getItem("jobCardData")
@@ -165,13 +82,9 @@ function InvoicesPage() {
         try {
           const jobCard: JobCardData = JSON.parse(data)
           
-          // Check if the loaded data matches the jobCardId from URL
-          // The jobCard.id from the previous page is `JC${bookingId}`
-          // The jobCardId param we sent was `jobCard.bookingId`
           if (jobCard.bookingId === jobCardId) {
-            
             // Convert Job Card items to Invoice items
-            const newItems: InvoiceItem[] = [
+            const newItems = [
               ...jobCard.spareParts.map(p => ({
                 description: p.name,
                 quantity: p.quantity,
@@ -191,8 +104,7 @@ function InvoicesPage() {
 
             // Pre-populate the form
             setFormData({
-              id: `INV-2024-${String(invoices.length + 1).padStart(3, "0")}`,
-              jobCardId: jobCard.id, // Use the Job Card's ID (e.g., JCBOOK001)
+              jobCardId: jobCard.id,
               customer: jobCard.customer,
               amount: totalAmount,
               items: newItems,
@@ -206,8 +118,6 @@ function InvoicesPage() {
 
             setShowForm(true) // Show the form
             localStorage.removeItem("jobCardData") // Clean up localStorage
-
-            // Clean up URL query param
             router.replace("/dashboard/invoices", undefined)
           }
         } catch (error) {
@@ -217,18 +127,17 @@ function InvoicesPage() {
       }
     }
 
-  }, [router, searchParams]) // Add searchParams dependency
+  }, [router, searchParams, user]) 
 
   const filteredInvoices = invoices.filter(
     (invoice) =>
       invoice.customer.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      invoice.id.toLowerCase().includes(searchTerm.toLowerCase()),
+      (invoice.id || invoice._id)?.toLowerCase().includes(searchTerm.toLowerCase()),
   )
 
   const handleAddNew = () => {
     setEditingId(null)
     setFormData({
-      id: `INV-2024-${String(invoices.length + 1).padStart(3, "0")}`,
       jobCardId: "",
       customer: "",
       amount: 0,
@@ -244,12 +153,16 @@ function InvoicesPage() {
   }
 
   const handleEdit = (invoice: Invoice) => {
-    setEditingId(invoice.id)
-    setFormData(invoice)
+    const invId = invoice.id || invoice._id
+    if (!invId) return
+
+    setEditingId(invId)
+    // Extract editable fields, ignoring db specific fields
+    const { id, _id, workshop_id, ...rest } = invoice
+    setFormData(rest)
     setShowForm(true)
   }
 
-  // UPDATED: handleSave now updates localStorage
   const handleSave = () => {
     if (
       !formData.customer ||
@@ -266,23 +179,33 @@ function InvoicesPage() {
     )
     const updatedFormData = { ...formData, amount: total }
 
-    let newInvoices: Invoice[] = []
-    if (editingId) {
-      newInvoices = invoices.map((i) => (i.id === editingId ? updatedFormData : i))
-    } else {
-      newInvoices = [...invoices, updatedFormData]
-    }
-
-    setInvoices(newInvoices)
-    localStorage.setItem("allInvoices", JSON.stringify(newInvoices))
-    setShowForm(false)
+    saveInvoiceMutation.mutate(
+      { data: updatedFormData, id: editingId ?? undefined },
+      {
+        onSuccess: () => {
+          setShowForm(false)
+          setEditingId(null)
+        }
+      }
+    )
   }
 
-  // UPDATED: handleStatusChange now updates localStorage
+  const handleDelete = (id: string) => {
+    if (confirm("Are you sure you want to delete this invoice?")) {
+      deleteInvoiceMutation.mutate(id)
+    }
+  }
+
   const handleStatusChange = (id: string, newStatus: Invoice["status"]) => {
-    const newInvoices = invoices.map((i) => (i.id === id ? { ...i, status: newStatus } : i))
-    setInvoices(newInvoices)
-    localStorage.setItem("allInvoices", JSON.stringify(newInvoices))
+    // We can reuse the save mutation to update just the status
+    // First find the invoice
+    const inv = invoices.find(i => (i.id === id || i._id === id))
+    if(!inv) return
+
+    const { id: _1, _id: _2, workshop_id, ...invData } = inv
+    const updatedData = { ...invData, status: newStatus }
+
+    saveInvoiceMutation.mutate({ data: updatedData, id })
   }
 
   const handleAddItem = () => {
@@ -302,20 +225,15 @@ function InvoicesPage() {
     })
   }
 
-  if (!mounted || !userRole) return null
+  if (!mounted || !user) return null
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "draft":
-        return "bg-gray-100 text-gray-800"
-      case "sent":
-        return "bg-blue-100 text-blue-800"
-      case "paid":
-        return "bg-green-100 text-green-800"
-      case "overdue":
-        return "bg-red-100 text-red-800"
-      default:
-        return "bg-gray-100 text-gray-800"
+      case "draft": return "bg-gray-100 text-gray-800"
+      case "sent": return "bg-blue-100 text-blue-800"
+      case "paid": return "bg-green-100 text-green-800"
+      case "overdue": return "bg-red-100 text-red-800"
+      default: return "bg-gray-100 text-gray-800"
     }
   }
 
@@ -327,10 +245,7 @@ function InvoicesPage() {
             <h1 className="text-3xl font-bold text-foreground">Invoices</h1>
             <p className="text-muted-foreground">Manage your invoices and payments</p>
           </div>
-          <Button
-            onClick={handleAddNew}
-            className="bg-primary hover:bg-primary/90"
-          >
+          <Button onClick={handleAddNew} className="bg-primary hover:bg-primary/90">
             <Plus className="w-4 h-4 mr-2" />
             Create Invoice
           </Button>
@@ -338,7 +253,8 @@ function InvoicesPage() {
 
         {/* Invoice Form Modal */}
         {showForm && (
-          <Card className="border-primary/50 bg-primary/5">
+          <div className="fixed inset-0 z-50 overflow-y-auto bg-black/30 backdrop-blur-sm p-4 flex items-center justify-center">
+          <Card className="border-primary/50 bg-card w-full max-w-4xl shadow-xl max-h-[90vh] overflow-y-auto">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
               <CardTitle>
                 {editingId ? "Edit Invoice" : "Create New Invoice"}
@@ -501,11 +417,8 @@ function InvoicesPage() {
               </div>
 
               <div className="flex gap-2">
-                <Button
-                  onClick={handleSave}
-                  className="bg-primary hover:bg-primary/90"
-                >
-                  <Check className="w-4 h-4 mr-2" />
+                <Button onClick={handleSave} className="bg-primary hover:bg-primary/90" disabled={saveInvoiceMutation.isPending}>
+                  {saveInvoiceMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
                   Save Invoice
                 </Button>
                 <Button onClick={() => setShowForm(false)} variant="outline">
@@ -514,6 +427,7 @@ function InvoicesPage() {
               </div>
             </CardContent>
           </Card>
+          </div>
         )}
 
         {/* Search */}
@@ -546,6 +460,11 @@ function InvoicesPage() {
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
+              {isLoading ? (
+                <div className="flex justify-center p-8">
+                  <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                </div>
+              ) : (
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-border">
@@ -574,13 +493,15 @@ function InvoicesPage() {
                 </thead>
                 <tbody>
                   {filteredInvoices.length > 0 ? (
-                    filteredInvoices.map((invoice) => (
+                    filteredInvoices.map((invoice) => {
+                      const invId = invoice.id || invoice._id || ""
+                      return (
                       <tr
-                        key={invoice.id}
+                        key={invId}
                         className="border-b border-border hover:bg-muted/50 transition-colors"
                       >
                         <td className="py-3 px-4 text-sm font-medium text-foreground">
-                          {invoice.id}
+                          {invId.slice(-6).toUpperCase()}
                         </td>
                         <td className="py-3 px-4 text-sm text-foreground">
                           {invoice.customer}
@@ -598,10 +519,7 @@ function InvoicesPage() {
                           <select
                             value={invoice.status}
                             onChange={(e) =>
-                              handleStatusChange(
-                                invoice.id,
-                                e.target.value as Invoice["status"],
-                              )
+                              handleStatusChange(invId, e.target.value as Invoice["status"])
                             }
                             className={`px-3 py-1 rounded-full text-xs font-medium border-0 cursor-pointer ${getStatusColor(
                               invoice.status,
@@ -617,6 +535,7 @@ function InvoicesPage() {
                           <Button
                             variant="ghost"
                             size="sm"
+                            onClick={() => handleEdit(invoice)}
                             className="hover:bg-primary/10"
                           >
                             <Eye className="w-4 h-4" />
@@ -624,13 +543,14 @@ function InvoicesPage() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="hover:bg-primary/10"
+                            onClick={() => handleDelete(invId)}
+                            className="hover:bg-destructive/10"
                           >
-                            <Download className="w-4 h-4" />
+                            <Trash2 className="w-4 h-4 text-destructive" />
                           </Button>
                         </td>
                       </tr>
-                    ))
+                    )})
                   ) : (
                     <tr>
                       <td
@@ -643,6 +563,7 @@ function InvoicesPage() {
                   )}
                 </tbody>
               </table>
+              )}
             </div>
           </CardContent>
         </Card>

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
+import DashboardLayout from "@/components/dashboard-layout"
 
 export default function SettingsPage() {
   const [settings, setSettings] = useState({
@@ -61,6 +62,7 @@ export default function SettingsPage() {
   // Don't render until component is mounted to avoid hydration mismatch
   if (!isMounted) {
     return (
+      <DashboardLayout>
       <div className="p-6 space-y-6">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Settings</h1>
@@ -75,10 +77,12 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
       </div>
+      </DashboardLayout>
     )
   }
 
   return (
+    <DashboardLayout>
     <div className="p-6 space-y-6">
       {/* Header */}
       <div>
@@ -150,5 +154,6 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
     </div>
+    </DashboardLayout>
   )
 }

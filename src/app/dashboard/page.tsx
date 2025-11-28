@@ -21,27 +21,10 @@ import { Button } from "@/components/ui/button"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Calendar } from "@/components/ui/calendar"
 import { DateRange } from "react-day-picker"
-import { format, addDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays, parseISO } from "date-fns"
+import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, parseISO } from "date-fns"
 import { useAuth } from "@/contexts/AppProviders"
-import { useDashboardStats, useRecentActivity } from "@/hooks/useApi"
+import { useDashboardStats, useRecentActivity, useDashboardChartData } from "@/hooks/useApi"
 import { Skeleton } from "@/components/ui/skeleton"
-
-// Helper function to generate daily data for the last 30 days
-const generateDailyData = () => {
-  const data = []
-  const today = new Date()
-  for (let i = 29; i >= 0; i--) {
-    const date = subDays(today, i)
-    data.push({
-      date: format(date, "MM/dd"),
-      bookings: Math.floor(Math.random() * 15) + 5,
-      completed: Math.floor(Math.random() * 10) + 5,
-      revenue: (Math.floor(Math.random() * 10) + 5) * 100 + Math.floor(Math.random() * 99),
-    })
-  }
-  return data
-}
-const dailyChartData = generateDailyData()
 
 export default function DashboardPage() {
   const router = useRouter()
@@ -65,6 +48,7 @@ export default function DashboardPage() {
   // --- Live Data Fetching ---
   const { data: stats, isLoading: isLoadingStats, isError: isErrorStats } = useDashboardStats(apiDateRange)
   const { data: activities, isLoading: isLoadingActivity, isError: isErrorActivity } = useRecentActivity()
+  const { data: chartData, isLoading: isLoadingCharts } = useDashboardChartData(30) // Always fetch last 30 days for trend
 
   useEffect(() => {
     setMounted(true)
@@ -72,7 +56,6 @@ export default function DashboardPage() {
       router.push("/")
       return
     }
-    // Get workshop name from Firebase user display name
     setWorkshopName(user.displayName || "My Workshop")
   }, [router, user])
 
@@ -96,7 +79,7 @@ export default function DashboardPage() {
   }
 
   if (!mounted || !user) {
-    return null // or a loading spinner
+    return null 
   }
 
   // Helper to render stat card content
@@ -209,7 +192,12 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={dailyChartData}>
+                {isLoadingCharts ? (
+                    <div className="flex h-full items-center justify-center">
+                        <Loader2 className="animate-spin text-primary" />
+                    </div>
+                ) : (
+                <BarChart data={chartData || []}>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                   <XAxis dataKey="date" stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
                   <YAxis stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
@@ -224,6 +212,7 @@ export default function DashboardPage() {
                   <Bar dataKey="bookings" fill="var(--chart-1)" radius={[4, 4, 0, 0]} />
                   <Bar dataKey="completed" fill="var(--chart-2)" radius={[4, 4, 0, 0]} />
                 </BarChart>
+                )}
               </ResponsiveContainer>
             </CardContent>
           </Card>
@@ -235,7 +224,12 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={dailyChartData}>
+                {isLoadingCharts ? (
+                    <div className="flex h-full items-center justify-center">
+                        <Loader2 className="animate-spin text-primary" />
+                    </div>
+                ) : (
+                <LineChart data={chartData || []}>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                   <XAxis dataKey="date" stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
                   <YAxis stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(val) => `₹${val}`} />
@@ -255,6 +249,7 @@ export default function DashboardPage() {
                     dot={false}
                   />
                 </LineChart>
+                )}
               </ResponsiveContainer>
             </CardContent>
           </Card>

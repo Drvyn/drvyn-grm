@@ -20,6 +20,7 @@ import {
   Upload,
   UserPlus,
   Loader2, 
+  Check,
 } from "lucide-react"
 import DashboardLayout from "@/components/dashboard-layout"
 import {
@@ -32,26 +33,9 @@ import {
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
-import { useBookingById } from "@/hooks/useApi"
+import { useBookingById, useSaveJobCard, JobCardIn, SparePartItem, ServiceItem } from "@/hooks/useApi"
 
-// --- Interfaces ---
-
-interface SparePartItem {
-  id: string
-  name: string
-  quantity: number
-  price: number
-  taxPercent: number
-}
-
-interface ServiceItem {
-  id: string
-  description: string
-  cost: number
-  taxPercent: number
-}
-
-interface JobCard {
+interface JobCardState {
   id: string
   bookingId: string
   customer: string
@@ -61,21 +45,14 @@ interface JobCard {
   service: string
   date: string
   time: string
-  assignedMechanic: string
   spareParts: SparePartItem[]
   services: ServiceItem[]
   notes: string
+  issues: string[]
+  workers: string[]
+  photos: string[]
+  signature: string
 }
-
-// --- Mock Data & Initial States ---
-
-const mockMechanics = [
-  "John Doe",
-  "Jane Smith",
-  "Mike Johnson",
-  "Sarah Williams",
-  "Tom Brown",
-]
 
 const initialServiceState: ServiceItem = {
   id: "",
@@ -91,7 +68,7 @@ const initialPartState: SparePartItem = {
   taxPercent: 0,
 }
 
-const initialJobCardState: JobCard = {
+const initialJobCardState: JobCardState = {
   id: "",
   bookingId: "",
   customer: "",
@@ -101,10 +78,13 @@ const initialJobCardState: JobCard = {
   service: "",
   date: "",
   time: "",
-  assignedMechanic: mockMechanics[0],
   spareParts: [],
   services: [],
   notes: "",
+  issues: [],
+  workers: [],
+  photos: [],
+  signature: ""
 }
 
 export default function JobCardPage() {
@@ -115,21 +95,14 @@ export default function JobCardPage() {
   const [userRole, setUserRole] = useState<"admin" | "workshop" | null>(null)
   const [mounted, setMounted] = useState(false)
   
-  // Job card state starts empty
-  const [jobCard, setJobCard] = useState<JobCard>(initialJobCardState)
+  const [jobCard, setJobCard] = useState<JobCardState>(initialJobCardState)
 
-  // --- New State Variables ---
-  const [issues, setIssues] = useState<string[]>([])
-  const [additionalWorkers, setAdditionalWorkers] = useState<string[]>([])
-
-  // Modal visibility state
   const [isIssueModalOpen, setIsIssueModalOpen] = useState(false)
   const [isWorkerModalOpen, setIsWorkerModalOpen] = useState(false)
   const [isServiceModalOpen, setIsServiceModalOpen] = useState(false)
   const [isPartModalOpen, setIsPartModalOpen] = useState(false)
   const [isSignatureModalOpen, setIsSignatureModalOpen] = useState(false)
 
-  // Form data for modals
   const [currentIssue, setCurrentIssue] = useState("")
   const [currentWorker, setCurrentWorker] = useState("")
   const [currentService, setCurrentService] =
@@ -137,8 +110,9 @@ export default function JobCardPage() {
   const [currentPart, setCurrentPart] =
     useState<SparePartItem>(initialPartState)
 
-  // 1. Fetch booking data using the hook
   const { data: apiBooking, isLoading, isError } = useBookingById(bookingId)
+  
+  const saveJobCardMutation = useSaveJobCard()
 
   useEffect(() => {
     setMounted(true)
@@ -149,12 +123,11 @@ export default function JobCardPage() {
     }
     setUserRole(role)
 
-    // 2. Populate form when API data is available
     if (apiBooking) {
-      // Use robust ID check
       const bId = apiBooking.id || apiBooking._id || "UNKNOWN"
       
-      setJobCard({
+      setJobCard(prev => ({
+        ...prev,
         id: `JC${bId.slice(-6).toUpperCase()}`, 
         bookingId: bId,
         customer: apiBooking.customerName,
@@ -164,19 +137,12 @@ export default function JobCardPage() {
         service: apiBooking.bookingType || "Service", 
         date: apiBooking.date || new Date().toISOString().split("T")[0],
         time: apiBooking.time || "09:00",
-        assignedMechanic: apiBooking.serviceAdvisor || mockMechanics[0],
         notes: apiBooking.customerRemark || "",
-        spareParts: [],
-        services: [],
-      })
-
-      if (apiBooking.customerRemark && issues.length === 0) {
-        setIssues([apiBooking.customerRemark])
-      }
+        issues: apiBooking.customerRemark ? [apiBooking.customerRemark] : []
+      }))
     }
   }, [router, apiBooking])
 
-  // --- Summary Calculations ---
   const partsSubtotal = jobCard.spareParts.reduce(
     (sum, part) => sum + part.quantity * part.price,
     0,
@@ -198,25 +164,22 @@ export default function JobCardPage() {
   const totalTax = partsTax + servicesTax
   const total = subtotal + totalTax
 
-  // --- Handlers for Issues ---
   const handleAddIssue = () => {
     if (currentIssue.trim()) {
-      setIssues([...issues, currentIssue.trim()])
+      setJobCard(prev => ({ ...prev, issues: [...prev.issues, currentIssue.trim()] }))
       setCurrentIssue("")
       setIsIssueModalOpen(false)
     }
   }
 
-  // --- Handlers for Workers ---
   const handleAddWorker = () => {
     if (currentWorker.trim()) {
-      setAdditionalWorkers([...additionalWorkers, currentWorker.trim()])
+      setJobCard(prev => ({ ...prev, workers: [...prev.workers, currentWorker.trim()] }))
       setCurrentWorker("")
       setIsWorkerModalOpen(false)
     }
   }
 
-  // --- Handlers for Services ---
   const openServiceModal = (service: ServiceItem | null) => {
     if (service) {
       setCurrentService(service)
@@ -234,7 +197,6 @@ export default function JobCardPage() {
       (s) => s.id === currentService.id,
     )
     if (existing) {
-      // Update
       setJobCard({
         ...jobCard,
         services: jobCard.services.map((s) =>
@@ -242,7 +204,6 @@ export default function JobCardPage() {
         ),
       })
     } else {
-      // Create
       setJobCard({
         ...jobCard,
         services: [...jobCard.services, currentService],
@@ -258,7 +219,6 @@ export default function JobCardPage() {
     })
   }
 
-  // --- Handlers for Spare Parts ---
   const openPartModal = (part: SparePartItem | null) => {
     if (part) {
       setCurrentPart(part)
@@ -271,7 +231,6 @@ export default function JobCardPage() {
   const handleSavePart = () => {
     const existing = jobCard.spareParts.find((p) => p.id === currentPart.id)
     if (existing) {
-      // Update
       setJobCard({
         ...jobCard,
         spareParts: jobCard.spareParts.map((p) =>
@@ -279,7 +238,6 @@ export default function JobCardPage() {
         ),
       })
     } else {
-      // Create
       setJobCard({
         ...jobCard,
         spareParts: [...jobCard.spareParts, currentPart],
@@ -295,9 +253,32 @@ export default function JobCardPage() {
     })
   }
 
-  const handleGenerateInvoice = () => {
-    localStorage.setItem("jobCardData", JSON.stringify(jobCard))
-    router.push(`/dashboard/invoices?jobCardId=${jobCard.bookingId}`)
+  const handleGenerateInvoice = async () => {
+    const jobCardPayload: JobCardIn = {
+        booking_id: jobCard.bookingId,
+        customer: jobCard.customer,
+        phone: jobCard.phone,
+        email: jobCard.email,
+        vehicle: jobCard.vehicle,
+        service: jobCard.service,
+        date: jobCard.date,
+        time: jobCard.time,
+        spareParts: jobCard.spareParts,
+        services: jobCard.services,
+        notes: jobCard.notes,
+        issues: jobCard.issues,
+        workers: jobCard.workers,
+        photos: jobCard.photos,
+        signature: jobCard.signature,
+    }
+
+    try {
+        await saveJobCardMutation.mutateAsync({ data: jobCardPayload })
+        localStorage.setItem("jobCardData", JSON.stringify(jobCard))
+        router.push(`/dashboard/invoices?jobCardId=${jobCard.bookingId}`)
+    } catch (error) {
+        console.error("Failed to save job card", error)
+    }
   }
 
   if (!mounted || !userRole) return null
@@ -328,7 +309,6 @@ export default function JobCardPage() {
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        {/* Header */}
         <div className="flex items-center gap-4">
           <Button
             variant="ghost"
@@ -345,7 +325,6 @@ export default function JobCardPage() {
           </div>
         </div>
 
-        {/* Customer & Service Details */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <Card>
             <CardHeader>
@@ -400,24 +379,6 @@ export default function JobCardPage() {
               </div>
               <div>
                 <label className="text-sm font-medium text-muted-foreground">
-                  Assigned Mechanic
-                </label>
-                <select
-                  value={jobCard.assignedMechanic}
-                  onChange={(e) =>
-                    setJobCard({ ...jobCard, assignedMechanic: e.target.value })
-                  }
-                  className="w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground mt-1"
-                >
-                  {mockMechanics.map((mechanic) => (
-                    <option key={mechanic} value={mechanic}>
-                      {mechanic}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">
                   Notes
                 </label>
                 <Textarea
@@ -433,7 +394,6 @@ export default function JobCardPage() {
           </Card>
         </div>
 
-        {/* NEW: Issues & Workers Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0">
@@ -454,10 +414,10 @@ export default function JobCardPage() {
             </CardHeader>
             <CardContent>
               <ul className="list-disc pl-5 space-y-2 text-sm text-foreground">
-                {issues.map((issue, idx) => (
+                {jobCard.issues.map((issue, idx) => (
                   <li key={idx}>{issue}</li>
                 ))}
-                {issues.length === 0 && (
+                {jobCard.issues.length === 0 && (
                   <p className="text-muted-foreground">No issues reported.</p>
                 )}
               </ul>
@@ -483,10 +443,8 @@ export default function JobCardPage() {
             </CardHeader>
             <CardContent>
               <div className="flex flex-wrap gap-2">
-                <Badge variant="secondary" className="text-base">
-                  {jobCard.assignedMechanic} (Lead)
-                </Badge>
-                {additionalWorkers.map((worker, idx) => (
+                {jobCard.workers.length === 0 && <p className="text-sm text-muted-foreground">No workers assigned.</p>}
+                {jobCard.workers.map((worker, idx) => (
                   <Badge key={idx} variant="outline" className="text-base">
                     {worker}
                   </Badge>
@@ -496,7 +454,6 @@ export default function JobCardPage() {
           </Card>
         </div>
 
-        {/* Spare Parts Table */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0">
             <div>
@@ -594,7 +551,6 @@ export default function JobCardPage() {
           </CardContent>
         </Card>
 
-        {/* Services (Labor) Table */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0">
             <div>
@@ -689,7 +645,6 @@ export default function JobCardPage() {
           </CardContent>
         </Card>
 
-        {/* Uploads & Signature */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <Card>
             <CardHeader>
@@ -723,7 +678,6 @@ export default function JobCardPage() {
           </Card>
         </div>
 
-        {/* Totals & Actions */}
         <Card className="border-primary/50 bg-primary/5">
           <CardHeader>
             <CardTitle className="text-lg">Summary</CardTitle>
@@ -753,10 +707,11 @@ export default function JobCardPage() {
             </div>
             <Button
               onClick={handleGenerateInvoice}
+              disabled={saveJobCardMutation.isPending}
               className="w-full bg-primary hover:bg-primary/90"
             >
-              <FileText className="w-4 h-4 mr-2" />
-              Generate Invoice
+              {saveJobCardMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <FileText className="w-4 h-4 mr-2" />}
+              Save & Generate Invoice
             </Button>
           </CardContent>
         </Card>
@@ -764,7 +719,6 @@ export default function JobCardPage() {
 
       {/* --- MODALS --- */}
 
-      {/* Add Issue Modal */}
       <Dialog open={isIssueModalOpen} onOpenChange={setIsIssueModalOpen}>
         <DialogContent>
           <DialogHeader>
@@ -791,7 +745,6 @@ export default function JobCardPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Add Worker Modal */}
       <Dialog open={isWorkerModalOpen} onOpenChange={setIsWorkerModalOpen}>
         <DialogContent>
           <DialogHeader>
@@ -818,7 +771,6 @@ export default function JobCardPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Add/Edit Service Modal */}
       <Dialog open={isServiceModalOpen} onOpenChange={setIsServiceModalOpen}>
         <DialogContent>
           <DialogHeader>
@@ -883,7 +835,6 @@ export default function JobCardPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Add/Edit Part Modal */}
       <Dialog open={isPartModalOpen} onOpenChange={setIsPartModalOpen}>
         <DialogContent>
           <DialogHeader>
@@ -956,7 +907,6 @@ export default function JobCardPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Signature Modal */}
       <Dialog open={isSignatureModalOpen} onOpenChange={setIsSignatureModalOpen}>
         <DialogContent>
           <DialogHeader>

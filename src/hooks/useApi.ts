@@ -37,9 +37,8 @@ const apiClient = async (
   return response.json()
 }
 
-// --- Model Types (from app/models/workshop.py) ---
+// --- Model Types ---
 
-// Helper type to handle MongoDB _id vs frontend id
 type MongoEntity = {
   id?: string
   _id?: string
@@ -154,9 +153,12 @@ export interface JobCard extends MongoEntity {
   service: string
   date: string
   time: string
-  assignedMechanic: string
+  workers: string[]
   spareParts: SparePartItem[]
   services: ServiceItem[]
+  issues: string[]
+  photos: string[]
+  signature?: string
   notes?: string
 }
 export type JobCardIn = Omit<JobCard, "id" | "_id" | "workshop_id">
@@ -194,12 +196,18 @@ export interface DashboardStats {
     pending: number
 }
 
+export interface ChartDataPoint {
+    date: string
+    bookings: number
+    completed: number
+    revenue: number
+}
+
 
 // --------------------
 // --- API Hooks ---
 // --------------------
 
-// --- Dashboard ---
 export const useDashboardStats = (dateRange: { from: string, to: string }) => {
   const { getToken } = useAuth()
   return useQuery<DashboardStats>({
@@ -216,6 +224,17 @@ export const useDashboardStats = (dateRange: { from: string, to: string }) => {
   })
 }
 
+export const useDashboardChartData = (days: number = 30) => {
+  const { getToken } = useAuth()
+  return useQuery<ChartDataPoint[]>({
+    queryKey: ["dashboardChartData", days],
+    queryFn: async () => {
+      const token = await getToken()
+      return apiClient(`/dashboard-chart-data?days=${days}`, token)
+    },
+  })
+}
+
 export const useRecentActivity = () => {
   const { getToken } = useAuth()
   return useQuery<Activity[]>({
@@ -227,8 +246,6 @@ export const useRecentActivity = () => {
   })
 }
 
-
-// --- Bookings ---
 export const useBookings = () => {
   const { getToken } = useAuth()
   return useQuery<Booking[]>({
@@ -247,7 +264,6 @@ export const useBookingById = (id: string) => {
     queryFn: async () => {
       const token = await getToken()
       const bookings = await apiClient("/bookings", token) as Booking[]
-      // Fix: Check both id and _id
       const booking = bookings.find(b => (b.id === id || b._id === id))
       if (!booking) {
         throw new Error("Booking not found")
@@ -276,7 +292,7 @@ export const useSaveBooking = () => {
     onSuccess: (savedBooking) => {
       queryClient.invalidateQueries({ queryKey: ["bookings"] })
       queryClient.invalidateQueries({ queryKey: ["dashboardStats"] })
-      // Use the correct ID field for cache update
+      queryClient.invalidateQueries({ queryKey: ["dashboardChartData"] })
       const id = savedBooking.id || savedBooking._id
       if (id) {
         queryClient.setQueryData(["bookings", id], savedBooking)
@@ -301,6 +317,7 @@ export const useDeleteBooking = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["bookings"] })
       queryClient.invalidateQueries({ queryKey: ["dashboardStats"] })
+      queryClient.invalidateQueries({ queryKey: ["dashboardChartData"] })
       toast.success("Booking deleted.")
     },
     onError: (error) => {
@@ -329,6 +346,7 @@ export const useUpdateBookingStatus = () => {
                 queryClient.setQueryData(["bookings", id], updatedBooking)
             }
             queryClient.invalidateQueries({ queryKey: ["dashboardStats"] })
+            queryClient.invalidateQueries({ queryKey: ["dashboardChartData"] })
             toast.success("Booking status updated.")
         },
         onError: (error) => {
@@ -337,8 +355,6 @@ export const useUpdateBookingStatus = () => {
     })
 }
 
-
-// --- Employees ---
 export const useEmployees = () => {
   const { getToken } = useAuth()
   return useQuery<Employee[]>({
@@ -394,8 +410,6 @@ export const useDeleteEmployee = () => {
   })
 }
 
-
-// --- Departments ---
 export const useDepartments = () => {
   const { getToken } = useAuth()
   return useQuery<Department[]>({
@@ -429,7 +443,6 @@ export const useSaveDepartment = () => {
   })
 }
 
-// --- Customers (NEW) ---
 export const useCustomers = () => {
   const { getToken } = useAuth()
   return useQuery<Customer[]>({
@@ -484,7 +497,6 @@ export const useDeleteCustomer = () => {
   })
 }
 
-// --- Parts (NEW) ---
 export const useParts = () => {
   const { getToken } = useAuth()
   return useQuery<Part[]>({
@@ -539,8 +551,6 @@ export const useDeletePart = () => {
   })
 }
 
-
-// --- JobCards (NEW) ---
 export const useJobCards = () => {
   const { getToken } = useAuth()
   return useQuery<JobCard[]>({
@@ -559,7 +569,6 @@ export const useJobCard = (id: string) => {
     queryFn: async () => {
       const token = await getToken()
       const jobcards = await apiClient("/jobcards", token) as JobCard[]
-      // Fix: Check both id and _id
       const jobcard = jobcards.find(j => (j.id === id || j._id === id))
       if (!jobcard) {
         throw new Error("JobCard not found")
@@ -594,7 +603,6 @@ export const useSaveJobCard = () => {
   })
 }
 
-// --- Invoices (NEW) ---
 export const useInvoices = () => {
   const { getToken } = useAuth()
   return useQuery<Invoice[]>({
@@ -623,10 +631,32 @@ export const useSaveInvoice = () => {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["invoices"] })
       queryClient.invalidateQueries({ queryKey: ["dashboardStats"] })
+      queryClient.invalidateQueries({ queryKey: ["dashboardChartData"] })
       toast.success(variables.id ? "Invoice updated!" : "Invoice created!")
     },
     onError: (error) => {
       toast.error(`Failed to save invoice: ${error.message}`)
+    },
+  })
+}
+
+export const useDeleteInvoice = () => {
+  const queryClient = useQueryClient()
+  const { getToken } = useAuth()
+
+  return useMutation<null, Error, string>({
+    mutationFn: async (id) => {
+      const token = await getToken()
+      return apiClient(`/invoices/${id}`, token, { method: "DELETE" })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["invoices"] })
+      queryClient.invalidateQueries({ queryKey: ["dashboardStats"] })
+      queryClient.invalidateQueries({ queryKey: ["dashboardChartData"] })
+      toast.success("Invoice deleted.")
+    },
+    onError: (error) => {
+      toast.error(`Failed to delete invoice: ${error.message}`)
     },
   })
 }

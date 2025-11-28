@@ -23,6 +23,7 @@ import {
   BookingIn,
   Employee,
   EmployeeIn,
+  CustomerIn,
   useBookings,
   useSaveBooking,
   useDeleteBooking,
@@ -31,10 +32,10 @@ import {
   useSaveEmployee,
   useDeleteEmployee,
   useDepartments,
-  useSaveDepartment
+  useSaveDepartment,
+  useSaveCustomer
 } from "@/hooks/useApi"
 
-// --- LOCAL TYPES ---
 type BookingFormData = Omit<BookingIn, "drivingLicenseExpiry"> & {
   drivingLicenseExpiry?: Date
 }
@@ -122,6 +123,7 @@ export default function BookingsPage() {
   const saveEmployeeMutation = useSaveEmployee()
   const deleteEmployeeMutation = useDeleteEmployee()
   const saveDepartmentMutation = useSaveDepartment()
+  const saveCustomerMutation = useSaveCustomer()
 
   useEffect(() => {
     setMounted(true)
@@ -147,7 +149,6 @@ export default function BookingsPage() {
   }
 
   const handleEdit = (booking: Booking) => {
-    // Use the correct ID
     const id = booking.id || booking._id
     if (!id) return
 
@@ -162,7 +163,7 @@ export default function BookingsPage() {
 
   const handleSave = () => {
     const mandatoryFields: (keyof BookingIn)[] = [
-      "customerType", "customerName", "phone", "businessType", "subType",
+      "customerType", "customerName", "phone", "email", "businessType", "subType",
       "carNumber", "makeAndModel", "fuelType", "serviceAdvisor",
       "bookingType", "department", "odometer"
     ];
@@ -173,12 +174,32 @@ export default function BookingsPage() {
       return;
     }
 
+    // Phone Validation
+    if (formData.phone.length > 10) {
+      alert("Phone number should be max 10 digits.");
+      return;
+    }
+
+    // Email Validation
+    if (!formData.email || !formData.email.includes("@")) {
+      alert("Please enter a valid email address with '@'.");
+      return;
+    }
+
     const apiPayload: BookingIn = {
       ...formData,
       drivingLicenseExpiry: formData.drivingLicenseExpiry 
         ? formData.drivingLicenseExpiry.toISOString() 
         : undefined,
     }
+
+    const customerPayload: CustomerIn = {
+      name: formData.customerName,
+      email: formData.email || "",
+      phone: formData.phone,
+      address: formData.address || "",
+    }
+    saveCustomerMutation.mutate({ data: customerPayload })
 
     saveBookingMutation.mutate(
       { data: apiPayload, id: editingId ?? undefined },
@@ -236,7 +257,6 @@ export default function BookingsPage() {
         exitDate: newEmployeeData.exitDate ? newEmployeeData.exitDate.toISOString() : undefined,
     }
 
-    // Use id or _id
     const empId = editingEmployee?.id || editingEmployee?._id
 
     saveEmployeeMutation.mutate(
@@ -364,7 +384,6 @@ export default function BookingsPage() {
                   <tbody>
                     {filteredBookings.length > 0 ? (
                       filteredBookings.map((booking, index) => {
-                        // --- FIX: Correctly determine ID ---
                         const bookingId = booking.id || booking._id || ""
                         return (
                           <tr
@@ -448,7 +467,6 @@ export default function BookingsPage() {
         </Card>
       </div>
 
-      {/* NEW BOOKING FORM MODAL - No changes needed within form logic, just re-rendered for completeness */}
       {showForm && (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-black/30 backdrop-blur-sm p-4 md:p-8">
           <Card className="max-w-6xl mx-auto shadow-2xl border-primary/20 w-full">
@@ -460,7 +478,6 @@ export default function BookingsPage() {
             </CardHeader>
             <CardContent className="p-6 bg-card rounded-b-lg max-h-[85vh] overflow-y-auto">
               <div className="space-y-6">
-                {/* Customer details */}
                 <div className="space-y-4">
                   <h3 className="text-lg font-medium text-foreground border-b pb-2">Customer details</h3>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -483,7 +500,7 @@ export default function BookingsPage() {
                         <Input id="phone" value={formData.phone} onChange={(e) => handleFormChange("phone", e.target.value)} />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="email">Email address</Label>
+                        <Label htmlFor="email">Email address *</Label>
                         <Input id="email" type="email" value={formData.email} onChange={(e) => handleFormChange("email", e.target.value)} />
                       </div>
                       <div className="space-y-2 md:col-span-2">
@@ -508,7 +525,13 @@ export default function BookingsPage() {
                             </Button>
                           </PopoverTrigger>
                           <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar mode="single" selected={formData.drivingLicenseExpiry} onSelect={(d) => handleFormChange("drivingLicenseExpiry", d)} initialFocus />
+                            <Calendar
+                              mode="single" 
+                              selected={formData.drivingLicenseExpiry} 
+                              onSelect={(d) => handleFormChange("drivingLicenseExpiry", d)}
+                              disabled={(date) => date < new Date()}
+                              initialFocus 
+                            />
                           </PopoverContent>
                         </Popover>
                       </div>
@@ -680,9 +703,9 @@ export default function BookingsPage() {
                 <Button 
                   onClick={handleSave} 
                   className="bg-primary hover:bg-primary/90"
-                  disabled={saveBookingMutation.isPending}
+                  disabled={saveBookingMutation.isPending || saveCustomerMutation.isPending}
                 >
-                  {saveBookingMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />} 
+                  {(saveBookingMutation.isPending || saveCustomerMutation.isPending) ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />} 
                   Save Booking
                 </Button>
                 <Button onClick={() => setShowForm(false)} variant="outline">
@@ -853,7 +876,13 @@ export default function BookingsPage() {
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar mode="single" selected={newEmployeeData.joiningDate} onSelect={(d) => handleNewEmployeeChange("joiningDate", d)} initialFocus />
+                  <Calendar 
+                    mode="single" 
+                    selected={newEmployeeData.joiningDate} 
+                    onSelect={(d) => handleNewEmployeeChange("joiningDate", d)}
+                    disabled={(date) => date < new Date()}
+                    initialFocus 
+                  />
                 </PopoverContent>
               </Popover>
             </div>
@@ -867,7 +896,13 @@ export default function BookingsPage() {
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar mode="single" selected={newEmployeeData.exitDate} onSelect={(d) => handleNewEmployeeChange("exitDate", d)} initialFocus />
+                  <Calendar 
+                    mode="single" 
+                    selected={newEmployeeData.exitDate} 
+                    onSelect={(d) => handleNewEmployeeChange("exitDate", d)}
+                    disabled={(date) => date < new Date()}
+                    initialFocus 
+                  />
                 </PopoverContent>
               </Popover>
             </div>

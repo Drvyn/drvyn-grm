@@ -5,75 +5,21 @@ import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Plus, Search, Mail, Phone, MapPin, Edit2, Trash2, X, Check } from "lucide-react"
+import { Plus, Search, Mail, Phone, MapPin, Edit2, Trash2, X, Check, Loader2 } from "lucide-react"
 import DashboardLayout from "@/components/dashboard-layout"
-
-interface Customer {
-  id: string
-  name: string
-  email: string
-  phone: string
-  address: string
-  city: string
-  state: string
-  zipCode: string
-  bookings: number
-  totalSpent: number
-  notes: string
-}
-
-const initialCustomers: Customer[] = [
-  {
-    id: "C001",
-    name: "John Smith",
-    email: "john@example.com",
-    phone: "555-0101",
-    address: "123 Main St",
-    city: "New York",
-    state: "NY",
-    zipCode: "10001",
-    bookings: 5,
-    totalSpent: 1250,
-    notes: "Regular customer",
-  },
-  {
-    id: "C002",
-    name: "Sarah Johnson",
-    email: "sarah@example.com",
-    phone: "555-0102",
-    address: "456 Oak Ave",
-    city: "Los Angeles",
-    state: "CA",
-    zipCode: "90001",
-    bookings: 3,
-    totalSpent: 750,
-    notes: "Prefers morning appointments",
-  },
-  {
-    id: "C003",
-    name: "Mike Davis",
-    email: "mike@example.com",
-    phone: "555-0103",
-    address: "789 Pine Rd",
-    city: "Chicago",
-    state: "IL",
-    zipCode: "60601",
-    bookings: 8,
-    totalSpent: 2100,
-    notes: "VIP customer",
-  },
-]
+import { useAuth } from "@/contexts/AppProviders"
+import { useCustomers, useSaveCustomer, useDeleteCustomer, Customer, CustomerIn } from "@/hooks/useApi"
 
 export default function CustomersPage() {
   const router = useRouter()
-  const [userRole, setUserRole] = useState<"admin" | "workshop" | null>(null)
+  const { user } = useAuth()
   const [mounted, setMounted] = useState(false)
-  const [customers, setCustomers] = useState<Customer[]>(initialCustomers)
+  
   const [searchTerm, setSearchTerm] = useState("")
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [formData, setFormData] = useState<Customer>({
-    id: "",
+  
+  const [formData, setFormData] = useState<CustomerIn>({
     name: "",
     email: "",
     phone: "",
@@ -81,19 +27,20 @@ export default function CustomersPage() {
     city: "",
     state: "",
     zipCode: "",
-    bookings: 0,
-    totalSpent: 0,
     notes: "",
   })
 
+  // --- API Hooks ---
+  const { data: customers = [], isLoading } = useCustomers()
+  const saveCustomerMutation = useSaveCustomer()
+  const deleteCustomerMutation = useDeleteCustomer()
+
   useEffect(() => {
     setMounted(true)
-    const role = localStorage.getItem("userRole") as "admin" | "workshop" | null
-    if (!role || role !== "workshop") {
-      router.push("/dashboard")
+    if (!user) {
+      router.push("/")
     }
-    setUserRole(role)
-  }, [router])
+  }, [router, user])
 
   const filteredCustomers = customers.filter(
     (customer) =>
@@ -105,7 +52,6 @@ export default function CustomersPage() {
   const handleAddNew = () => {
     setEditingId(null)
     setFormData({
-      id: `C${String(customers.length + 1).padStart(3, "0")}`,
       name: "",
       email: "",
       phone: "",
@@ -113,16 +59,26 @@ export default function CustomersPage() {
       city: "",
       state: "",
       zipCode: "",
-      bookings: 0,
-      totalSpent: 0,
       notes: "",
     })
     setShowForm(true)
   }
 
   const handleEdit = (customer: Customer) => {
-    setEditingId(customer.id)
-    setFormData(customer)
+    const custId = customer.id || customer._id
+    if (!custId) return
+    
+    setEditingId(custId)
+    setFormData({
+      name: customer.name,
+      email: customer.email,
+      phone: customer.phone,
+      address: customer.address || "",
+      city: customer.city || "",
+      state: customer.state || "",
+      zipCode: customer.zipCode || "",
+      notes: customer.notes || "",
+    })
     setShowForm(true)
   }
 
@@ -132,22 +88,24 @@ export default function CustomersPage() {
       return
     }
 
-    if (editingId) {
-      setCustomers(customers.map((c) => (c.id === editingId ? formData : c)))
-    } else {
-      setCustomers([...customers, formData])
-    }
-
-    setShowForm(false)
+    saveCustomerMutation.mutate(
+      { data: formData, id: editingId ?? undefined },
+      {
+        onSuccess: () => {
+          setShowForm(false)
+          setEditingId(null)
+        }
+      }
+    )
   }
 
   const handleDelete = (id: string) => {
     if (confirm("Are you sure you want to delete this customer?")) {
-      setCustomers(customers.filter((c) => c.id !== id))
+      deleteCustomerMutation.mutate(id)
     }
   }
 
-  if (!mounted || !userRole) return null
+  if (!mounted || !user) return null
 
   return (
     <DashboardLayout>
@@ -165,7 +123,8 @@ export default function CustomersPage() {
 
         {/* Customer Form Modal */}
         {showForm && (
-          <Card className="border-primary/50 bg-primary/5">
+          <div className="fixed inset-0 z-50 overflow-y-auto bg-black/30 backdrop-blur-sm p-4 flex items-center justify-center">
+          <Card className="border-primary/50 bg-card w-full max-w-2xl shadow-xl">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
               <CardTitle>{editingId ? "Edit Customer" : "Add New Customer"}</CardTitle>
               <button onClick={() => setShowForm(false)} className="p-1 hover:bg-muted rounded-lg transition-colors">
@@ -243,8 +202,8 @@ export default function CustomersPage() {
                 </div>
               </div>
               <div className="flex gap-2 mt-6">
-                <Button onClick={handleSave} className="bg-primary hover:bg-primary/90">
-                  <Check className="w-4 h-4 mr-2" />
+                <Button onClick={handleSave} className="bg-primary hover:bg-primary/90" disabled={saveCustomerMutation.isPending}>
+                  {saveCustomerMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
                   Save Customer
                 </Button>
                 <Button onClick={() => setShowForm(false)} variant="outline">
@@ -253,6 +212,7 @@ export default function CustomersPage() {
               </div>
             </CardContent>
           </Card>
+          </div>
         )}
 
         {/* Search */}
@@ -283,72 +243,77 @@ export default function CustomersPage() {
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-border">
-                    <th className="text-left py-3 px-4 font-medium text-muted-foreground">Name</th>
-                    <th className="text-left py-3 px-4 font-medium text-muted-foreground">Email</th>
-                    <th className="text-left py-3 px-4 font-medium text-muted-foreground">Phone</th>
-                    <th className="text-left py-3 px-4 font-medium text-muted-foreground">City</th>
-                    <th className="text-left py-3 px-4 font-medium text-muted-foreground">Bookings</th>
-                    <th className="text-left py-3 px-4 font-medium text-muted-foreground">Total Spent</th>
-                    <th className="text-left py-3 px-4 font-medium text-muted-foreground">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredCustomers.length > 0 ? (
-                    filteredCustomers.map((customer) => (
-                      <tr key={customer.id} className="border-b border-border hover:bg-muted/50 transition-colors">
-                        <td className="py-3 px-4 text-sm font-medium text-foreground">{customer.name}</td>
-                        <td className="py-3 px-4">
-                          <div className="text-sm text-foreground flex items-center gap-1">
-                            <Mail className="w-4 h-4" />
-                            {customer.email}
-                          </div>
-                        </td>
-                        <td className="py-3 px-4">
-                          <div className="text-sm text-foreground flex items-center gap-1">
-                            <Phone className="w-4 h-4" />
-                            {customer.phone}
-                          </div>
-                        </td>
-                        <td className="py-3 px-4">
-                          <div className="text-sm text-foreground flex items-center gap-1">
-                            <MapPin className="w-4 h-4" />
-                            {customer.city}
-                          </div>
-                        </td>
-                        <td className="py-3 px-4 text-sm text-foreground font-medium">{customer.bookings}</td>
-                        <td className="py-3 px-4 text-sm text-foreground font-medium">${customer.totalSpent}</td>
-                        <td className="py-3 px-4 flex gap-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleEdit(customer)}
-                            className="hover:bg-primary/10"
-                          >
-                            <Edit2 className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDelete(customer.id)}
-                            className="hover:bg-destructive/10"
-                          >
-                            <Trash2 className="w-4 h-4 text-destructive" />
-                          </Button>
+              {isLoading ? (
+                <div className="flex justify-center p-8">
+                  <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                </div>
+              ) : (
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-border">
+                      <th className="text-left py-3 px-4 font-medium text-muted-foreground">Name</th>
+                      <th className="text-left py-3 px-4 font-medium text-muted-foreground">Email</th>
+                      <th className="text-left py-3 px-4 font-medium text-muted-foreground">Phone</th>
+                      <th className="text-left py-3 px-4 font-medium text-muted-foreground">Address</th>
+                      <th className="text-left py-3 px-4 font-medium text-muted-foreground">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredCustomers.length > 0 ? (
+                      filteredCustomers.map((customer) => {
+                        const custId = customer.id || customer._id || ""
+                        return (
+                          <tr key={custId} className="border-b border-border hover:bg-muted/50 transition-colors">
+                            <td className="py-3 px-4 text-sm font-medium text-foreground">{customer.name}</td>
+                            <td className="py-3 px-4">
+                              <div className="text-sm text-foreground flex items-center gap-1">
+                                <Mail className="w-4 h-4" />
+                                {customer.email}
+                              </div>
+                            </td>
+                            <td className="py-3 px-4">
+                              <div className="text-sm text-foreground flex items-center gap-1">
+                                <Phone className="w-4 h-4" />
+                                {customer.phone}
+                              </div>
+                            </td>
+                            <td className="py-3 px-4">
+                              <div className="text-sm text-foreground flex items-center gap-1">
+                                <MapPin className="w-4 h-4" />
+                                {customer.address || customer.city || "-"}
+                              </div>
+                            </td>
+                            <td className="py-3 px-4 flex gap-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleEdit(customer)}
+                                className="hover:bg-primary/10"
+                              >
+                                <Edit2 className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleDelete(custId)}
+                                className="hover:bg-destructive/10"
+                              >
+                                <Trash2 className="w-4 h-4 text-destructive" />
+                              </Button>
+                            </td>
+                          </tr>
+                        )
+                      })
+                    ) : (
+                      <tr>
+                        <td colSpan={5} className="py-8 text-center text-muted-foreground">
+                          No customers found
                         </td>
                       </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan={7} className="py-8 text-center text-muted-foreground">
-                        No customers found
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+                    )}
+                  </tbody>
+                </table>
+              )}
             </div>
           </CardContent>
         </Card>

@@ -13,7 +13,6 @@ import {
   BarChart3,
   Settings,
   ChevronDown,
-  WrenchIcon,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -84,15 +83,15 @@ export function Sidebar({ userRole }: SidebarProps) {
               key={item.href}
               href={item.href}
               className={cn(
-                "flex items-center gap-3 px-4 py-3 rounded-lg transition-colors",
+                "flex items-center gap-3 px-4 py-3 rounded-lg transition-all",
                 isActive
-                  ? "bg-sidebar-primary text-sidebar-primary-foreground"
-                  : "text-sidebar-foreground hover:bg-sidebar-accent",
+                  ? "bg-sidebar-accent text-sidebar-foreground border-l-4 border-blue-600 font-medium"
+                  : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
               )}
               title={isCollapsed ? item.label : undefined}
             >
-              <Icon className="w-5 h-5 flex-shrink-0" />
-              {!isCollapsed && <span className="text-sm font-medium">{item.label}</span>}
+              <Icon className={cn("w-5 h-5 flex-shrink-0", isActive ? "text-blue-600" : "")} />
+              {!isCollapsed && <span className="text-sm">{item.label}</span>}
             </Link>
           )
         })}
