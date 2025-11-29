@@ -6,20 +6,18 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Plus, Search, Wrench, Clock, DollarSign, X, Check, Loader2, Calendar as CalendarIcon, FileText } from "lucide-react"
+import { Plus, Search, Wrench, Clock, X, Check, Loader2, FileText, ArrowRight } from "lucide-react"
 import DashboardLayout from "@/components/dashboard-layout"
 import { useAuth } from "@/contexts/AppProviders"
 import { 
   useJobCards, 
   useSaveJobCard, 
   JobCard, 
-  JobCardIn, 
-  SparePartItem, 
-  ServiceItem 
+  JobCardIn 
 } from "@/hooks/useApi"
-import { format, parseISO } from "date-fns"
+import { format } from "date-fns"
 
-// Default empty state for the form
+// Default empty state for the form (Create only)
 const initialJobCardData: JobCardIn = {
   booking_id: "",
   customer: "",
@@ -46,7 +44,6 @@ export default function JobCardsPage() {
 
   const [searchTerm, setSearchTerm] = useState("")
   const [showForm, setShowForm] = useState(false)
-  const [editingId, setEditingId] = useState<string | null>(null)
   const [formData, setFormData] = useState<JobCardIn>(initialJobCardData)
 
   useEffect(() => {
@@ -74,34 +71,29 @@ export default function JobCardsPage() {
 
   // Handlers
   const handleAddNew = () => {
-    setEditingId(null)
     setFormData(initialJobCardData)
     setShowForm(true)
   }
 
-  const handleEdit = (card: JobCard) => {
+  // UPDATED: Navigate to full detail page
+  const handleViewDetails = (card: JobCard) => {
     const cardId = card.id || card._id
-    if(!cardId) return
-
-    setEditingId(cardId)
-    // Map existing data to form structure
-    const { id, _id, workshop_id, ...rest } = card
-    setFormData(rest)
-    setShowForm(true)
+    if(cardId) {
+      router.push(`/dashboard/job-cards/${cardId}`)
+    }
   }
 
-  const handleSave = () => {
-    if (!formData.customer || !formData.vehicle || !formData.booking_id) {
-      alert("Please fill in Customer, Vehicle, and Booking ID")
+  const handleSaveNew = () => {
+    if (!formData.customer || !formData.vehicle) {
+      alert("Please fill in Customer and Vehicle details")
       return
     }
 
     saveJobCardMutation.mutate(
-      { data: formData, id: editingId ?? undefined },
+      { data: formData },
       {
         onSuccess: () => {
           setShowForm(false)
-          setEditingId(null)
           setFormData(initialJobCardData)
         }
       }
@@ -156,11 +148,15 @@ export default function JobCardsPage() {
               const totalCost = calculateTotal(card)
               
               return (
-                <Card key={cardId} className="hover:shadow-lg transition-all duration-200 border-l-4 border-l-primary/50">
+                <Card 
+                  key={cardId} 
+                  className="hover:shadow-lg transition-all duration-200 border-l-4 border-l-primary/50 cursor-pointer group"
+                  onClick={() => handleViewDetails(card)}
+                >
                   <CardHeader className="pb-3">
                     <div className="flex items-start justify-between">
                       <div>
-                        <CardTitle className="text-lg font-bold flex items-center gap-2">
+                        <CardTitle className="text-lg font-bold flex items-center gap-2 group-hover:text-primary transition-colors">
                           {cardId.slice(-6).toUpperCase()}
                         </CardTitle>
                         <CardDescription className="font-medium text-foreground/80">{card.customer}</CardDescription>
@@ -182,12 +178,6 @@ export default function JobCardsPage() {
                           {card.date} at {card.time}
                         </span>
                       </div>
-                      <div className="flex items-center gap-2 text-sm">
-                        <FileText className="w-4 h-4 text-muted-foreground" />
-                        <span className="text-muted-foreground text-xs truncate max-w-[200px]">
-                          {card.booking_id}
-                        </span>
-                      </div>
                     </div>
 
                     <div className="pt-3 border-t border-border flex items-center justify-between">
@@ -200,10 +190,9 @@ export default function JobCardsPage() {
                       <Button 
                         variant="ghost" 
                         size="sm" 
-                        onClick={() => handleEdit(card)}
-                        className="hover:bg-primary/10"
+                        className="hover:bg-primary/10 -mr-2"
                       >
-                        Edit Details
+                        View & Edit <ArrowRight className="w-4 h-4 ml-1" />
                       </Button>
                     </div>
                   </CardContent>
@@ -219,12 +208,12 @@ export default function JobCardsPage() {
         </div>
       </div>
 
-      {/* Create/Edit Modal */}
+      {/* Quick Create Modal */}
       {showForm && (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-black/40 backdrop-blur-sm p-4 flex items-center justify-center">
           <Card className="border-border bg-card w-full max-w-2xl shadow-2xl animate-in fade-in zoom-in-95 duration-200">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4 border-b border-border">
-              <CardTitle>{editingId ? "Edit Job Card" : "New Job Card"}</CardTitle>
+              <CardTitle>New Job Card</CardTitle>
               <button 
                 onClick={() => setShowForm(false)} 
                 className="p-1 hover:bg-muted rounded-lg transition-colors"
@@ -234,14 +223,6 @@ export default function JobCardsPage() {
             </CardHeader>
             <CardContent className="p-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Booking ID *</label>
-                  <Input
-                    value={formData.booking_id}
-                    onChange={(e) => setFormData({ ...formData, booking_id: e.target.value })}
-                    placeholder="e.g., Booking Object ID"
-                  />
-                </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Customer Name *</label>
                   <Input
@@ -256,6 +237,14 @@ export default function JobCardsPage() {
                     value={formData.vehicle}
                     onChange={(e) => setFormData({ ...formData, vehicle: e.target.value })}
                     placeholder="e.g., Honda City 2022"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Booking ID (Optional)</label>
+                  <Input
+                    value={formData.booking_id}
+                    onChange={(e) => setFormData({ ...formData, booking_id: e.target.value })}
+                    placeholder="Linked Booking ID"
                   />
                 </div>
                 <div className="space-y-2">
@@ -282,15 +271,6 @@ export default function JobCardsPage() {
                     onChange={(e) => setFormData({ ...formData, time: e.target.value })}
                   />
                 </div>
-                <div className="md:col-span-2 space-y-2">
-                  <label className="text-sm font-medium">Notes</label>
-                  <textarea
-                    value={formData.notes}
-                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                    className="w-full px-3 py-2 border border-input rounded-md bg-background text-sm min-h-[80px]"
-                    placeholder="Additional notes..."
-                  />
-                </div>
               </div>
               
               <div className="flex gap-2 mt-6 justify-end">
@@ -298,12 +278,12 @@ export default function JobCardsPage() {
                   Cancel
                 </Button>
                 <Button 
-                  onClick={handleSave} 
+                  onClick={handleSaveNew} 
                   disabled={saveJobCardMutation.isPending}
                   className="bg-primary hover:bg-primary/90"
                 >
                   {saveJobCardMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
-                  Save Job Card
+                  Create & View Details
                 </Button>
               </div>
             </CardContent>
