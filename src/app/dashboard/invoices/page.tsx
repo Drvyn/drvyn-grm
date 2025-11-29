@@ -11,10 +11,26 @@ import {
 } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Plus, Search, Download, Eye, X, Check, Trash2, Loader2 } from "lucide-react" 
+import { 
+  Plus, 
+  Search, 
+  Download, 
+  Eye, 
+  X, 
+  Check, 
+  Trash2, 
+  Loader2,
+  ChevronDown 
+} from "lucide-react" 
 import DashboardLayout from "@/components/dashboard-layout"
 import { useAuth } from "@/contexts/AppProviders"
 import { useInvoices, useSaveInvoice, useDeleteInvoice, Invoice, InvoiceIn } from "@/hooks/useApi"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
 // Interface for JobCard data coming from localStorage (Job Card Page)
 interface JobCardData {
@@ -229,11 +245,11 @@ function InvoicesPage() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "draft": return "bg-gray-100 text-gray-800"
-      case "sent": return "bg-blue-100 text-blue-800"
-      case "paid": return "bg-green-100 text-green-800"
-      case "overdue": return "bg-red-100 text-red-800"
-      default: return "bg-gray-100 text-gray-800"
+      case "draft": return "bg-gray-100 text-gray-700 border-gray-200 hover:bg-gray-200"
+      case "sent": return "bg-blue-100 text-blue-700 border-blue-200 hover:bg-blue-200"
+      case "paid": return "bg-green-100 text-green-700 border-green-200 hover:bg-green-200"
+      case "overdue": return "bg-red-100 text-red-700 border-red-200 hover:bg-red-200"
+      default: return "bg-gray-100 text-gray-700 border-gray-200"
     }
   }
 
@@ -516,20 +532,31 @@ function InvoicesPage() {
                           {invoice.dueDate}
                         </td>
                         <td className="py-3 px-4">
-                          <select
-                            value={invoice.status}
-                            onChange={(e) =>
-                              handleStatusChange(invId, e.target.value as Invoice["status"])
-                            }
-                            className={`px-3 py-1 rounded-full text-xs font-medium border-0 cursor-pointer ${getStatusColor(
-                              invoice.status,
-                            )}`}
-                          >
-                            <option value="draft">Draft</option>
-                            <option value="sent">Sent</option>
-                            <option value="paid">Paid</option>
-                            <option value="overdue">Overdue</option>
-                          </select>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <button
+                                onClick={(e) => e.stopPropagation()}
+                                className={`inline-flex items-center justify-between w-[100px] px-3 py-1.5 rounded-full text-xs font-semibold border transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1 ${getStatusColor(invoice.status)}`}
+                              >
+                                <span className="capitalize truncate">{invoice.status}</span>
+                                <ChevronDown className="w-3 h-3 ml-2 opacity-70 shrink-0" />
+                              </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start" className="w-[100px]">
+                              {["draft", "sent", "paid", "overdue"].map((st) => (
+                                <DropdownMenuItem
+                                  key={st}
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleStatusChange(invId, st as Invoice["status"])
+                                  }}
+                                  className="capitalize cursor-pointer text-xs py-2"
+                                >
+                                  {st}
+                                </DropdownMenuItem>
+                              ))}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </td>
                         <td className="py-3 px-4 flex gap-2">
                           <Button

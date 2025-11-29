@@ -4,7 +4,7 @@ import type React from "react"
 
 import { useState, useEffect } from "react"
 import { useRouter, usePathname } from "next/navigation" 
-import { Wrench, Users, FileText, Settings, LogOut, Menu, X, Clock, BarChart3, Package } from "lucide-react"
+import { Wrench, Users, FileText, Settings, LogOut, Menu, ChevronsLeft, Clock, BarChart3, Package } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -40,13 +40,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     return null
   }
 
+  // Removed "Settings" from these lists to move it to the bottom
   const navigationItems =
     userRole === "admin"
       ? [
           { label: "Dashboard", icon: Wrench, href: "/dashboard" },
           { label: "Workshops", icon: Users, href: "/dashboard/workshops" },
           { label: "Reports", icon: BarChart3, href: "/dashboard/reports" },
-          { label: "Settings", icon: Settings, href: "/dashboard/settings" },
         ]
       : [
           { label: "Dashboard", icon: Wrench, href: "/dashboard" },
@@ -55,41 +55,49 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           { label: "Invoices", icon: FileText, href: "/dashboard/invoices" },
           { label: "Customers", icon: Users, href: "/dashboard/customers" },
           { label: "Parts", icon: Package, href: "/dashboard/parts" }, 
-          { label: "Settings", icon: Settings, href: "/dashboard/settings" },
         ]
 
   return (
-    <div className="flex h-screen bg-background overflow-hidden">
+    <div className="flex h-screen bg-sidebar overflow-hidden">
+      
       {/* Sidebar */}
       <aside
         className={cn(
-          "bg-sidebar border-r border-sidebar-border transition-all duration-300 flex flex-col z-20",
+          "bg-sidebar transition-all duration-300 flex flex-col z-20",
           sidebarOpen ? "w-64" : "w-20"
         )}
       >
-        {/* Sidebar Header - Height matched to Navbar (h-16) */}
-        <div className="h-16 px-4 border-b border-sidebar-border flex items-center justify-between shrink-0">
+        {/* Sidebar Header */}
+        <div className="h-16 px-4 flex items-center justify-between shrink-0">
           {sidebarOpen && (
             <div className="flex items-center gap-3 overflow-hidden">
-              <div className="rounded-lg shadow-sm shrink-0">
+              <div className="rounded-lg shadow-sm shrink-0 bg-white/80 p-1">
                 <img
                   src="/favicon3.png"
                   alt="Logo"
-                  className="w-8 h-8" 
+                  className="w-7 h-7" 
                 />
               </div>
-              <span className="font-bold text-lg text-sidebar-foreground truncate">DrvynGRM</span>
+              <span className="font-bold text-lg text-sidebar-foreground truncate tracking-tight">DrvynGRM</span>
             </div>
           )}
+          
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="p-1.5 hover:bg-sidebar-accent rounded-lg transition-colors ml-auto text-sidebar-foreground/70"
+            className={cn(
+              "p-2 rounded-md transition-all duration-200 text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/80 focus:outline-none",
+              !sidebarOpen && "mx-auto" 
+            )}
           >
-            {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            {sidebarOpen ? (
+              <ChevronsLeft className="w-5 h-5" />
+            ) : (
+              <Menu className="w-5 h-5" />
+            )}
           </button>
         </div>
 
-        {/* Navigation */}
+        {/* Main Navigation (Pushed to top) */}
         <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
           {navigationItems.map((item) => {
             const isActive = pathname === item.href
@@ -99,17 +107,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 key={item.label}
                 href={item.href}
                 className={cn(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-r-lg transition-all duration-200 group relative",
-                  // Active State: Blue bar on left + background
+                  "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 group relative",
                   isActive 
-                    ? "bg-primary/10 text-primary font-semibold border-l-4 border-primary" 
-                    : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground border-l-4 border-transparent"
+                    ? "bg-sidebar-primary text-sidebar-primary-foreground font-medium shadow-sm" 
+                    : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                 )}
               >
                 <item.icon 
                   className={cn(
                     "w-5 h-5 flex-shrink-0 transition-colors",
-                    isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground"
+                    isActive ? "text-sidebar-primary-foreground" : "text-sidebar-foreground/60 group-hover:text-sidebar-foreground"
                   )} 
                 />
                 {sidebarOpen && (
@@ -118,7 +125,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 
                 {/* Tooltip for collapsed state */}
                 {!sidebarOpen && (
-                  <div className="absolute left-full top-1/2 -translate-y-1/2 ml-2 px-2 py-1 bg-popover text-popover-foreground text-xs rounded shadow-md opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50">
+                  <div className="absolute left-full top-1/2 -translate-y-1/2 ml-2 px-2 py-1 bg-white text-foreground text-xs rounded shadow-md opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50">
                     {item.label}
                   </div>
                 )}
@@ -127,62 +134,93 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           })}
         </nav>
 
-        {/* Footer */}
-        <div className="p-3 border-t border-sidebar-border shrink-0">
+        {/* Footer Group (Settings & Logout) */}
+        {/* Added a subtle top border line here */}
+        <div className="p-3 shrink-0 border-t border-sidebar-foreground/5 space-y-1">
+          
+          {/* Settings Option */}
+          <a
+            href="/dashboard/settings"
+            className={cn(
+              "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 group relative",
+              pathname === "/dashboard/settings"
+                ? "bg-sidebar-primary text-sidebar-primary-foreground font-medium shadow-sm"
+                : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+            )}
+          >
+            <Settings 
+                className={cn(
+                "w-5 h-5 flex-shrink-0 transition-colors",
+                pathname === "/dashboard/settings" ? "text-sidebar-primary-foreground" : "text-sidebar-foreground/60 group-hover:text-sidebar-foreground"
+                )} 
+            />
+            {sidebarOpen && <span className="text-sm truncate">Settings</span>}
+            
+            {/* Tooltip */}
+            {!sidebarOpen && (
+              <div className="absolute left-full top-1/2 -translate-y-1/2 ml-2 px-2 py-1 bg-white text-foreground text-xs rounded shadow-md opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50">
+                Settings
+              </div>
+            )}
+          </a>
+
+          {/* Logout Button */}
           <button
             onClick={handleLogout}
             className={cn(
-              "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-destructive/10 text-destructive transition-colors group",
+              "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-red-500/10 text-red-400 hover:text-red-500 transition-colors group relative",
               !sidebarOpen && "justify-center px-0"
             )}
           >
             <LogOut className="w-5 h-5 flex-shrink-0" />
             {sidebarOpen && <span className="text-sm font-medium">Logout</span>}
+            
+            {/* Tooltip */}
+            {!sidebarOpen && (
+              <div className="absolute left-full top-1/2 -translate-y-1/2 ml-2 px-2 py-1 bg-white text-foreground text-xs rounded shadow-md opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50">
+                Logout
+              </div>
+            )}
           </button>
         </div>
       </aside>
 
-      {/* Main Content */}
-      <main className="flex-1 flex flex-col h-screen overflow-hidden">
-        {/* Navbar Header - Height matched to Sidebar (h-16) */}
-        <header className="h-16 bg-card border-b border-border shrink-0 flex items-center justify-between px-6 md:px-8">
-          <div className="flex items-center gap-4">
-             {/* Mobile Sidebar Toggle */}
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col h-screen overflow-hidden">
+        
+        {/* Navbar Header */}
+        <header className="h-16 bg-sidebar shrink-0 flex items-center justify-between px-6 md:px-8 text-sidebar-foreground z-10">
+          
+          <div className="flex items-center gap-4 flex-1">
              <button
-                className="md:hidden p-1 hover:bg-accent rounded-md"
+                className="md:hidden p-1 hover:bg-sidebar-accent rounded-md text-sidebar-foreground/80"
                 onClick={() => setSidebarOpen(!sidebarOpen)}
               >
                 <Menu className="w-5 h-5" />
               </button>
-              
-              <div>
-                {/* Bold Workshop Name */}
-                <h1 className="text-base md:text-lg font-bold text-foreground">
-                  {workshopName}
-                </h1>
-              </div>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-6">
             <div className="flex flex-col items-end">
-               <span className="text-sm font-medium text-foreground capitalize hidden sm:inline-block">
+               <span className="text-sm font-semibold text-sidebar-foreground capitalize hidden sm:inline-block">
                   {userRole} Account
                </span>
-               <span className="text-xs text-muted-foreground hidden sm:inline-block">
+               <span className="text-xs text-sidebar-foreground/60 hidden sm:inline-block">
                  {typeof window !== 'undefined' ? localStorage.getItem("userEmail") : ""}
                </span>
             </div>
-            <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs border border-primary/20">
+            
+            <div className="h-9 w-9 rounded-full bg-sidebar-primary flex items-center justify-center text-sidebar-primary-foreground font-bold text-sm shadow-md">
                {workshopName.charAt(0).toUpperCase()}
             </div>
           </div>
         </header>
 
         {/* Page Content */}
-        <div className="flex-1 overflow-auto p-4 md:p-8 bg-muted/5">
+        <main className="flex-1 overflow-auto p-4 md:p-8 bg-[#f8f9fa] rounded-tl-3xl shadow-inner relative">
           {children}
-        </div>
-      </main>
+        </main>
+      </div>
     </div>
   )
 }

@@ -13,7 +13,19 @@ import { Textarea } from "@/components/ui/textarea"
 import { Slider } from "@/components/ui/slider"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { Plus, Search, Calendar as CalendarIcon, Phone, Edit2, Trash2, X, Check, MoreVertical, Loader2 } from "lucide-react"
+import { 
+  Plus, 
+  Search, 
+  Calendar as CalendarIcon, 
+  Phone, 
+  Edit2, 
+  Trash2, 
+  X, 
+  Check, 
+  MoreVertical, 
+  Loader2,
+  ChevronDown 
+} from "lucide-react"
 import DashboardLayout from "@/components/dashboard-layout"
 import { format, parseISO } from "date-fns"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -174,13 +186,11 @@ export default function BookingsPage() {
       return;
     }
 
-    // Phone Validation
     if (formData.phone.length > 10) {
       alert("Phone number should be max 10 digits.");
       return;
     }
 
-    // Email Validation
     if (!formData.email || !formData.email.includes("@")) {
       alert("Please enter a valid email address with '@'.");
       return;
@@ -317,12 +327,12 @@ export default function BookingsPage() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "confirmed": return "bg-blue-100 text-blue-800"
-      case "pending": return "bg-yellow-100 text-yellow-800"
-      case "in-progress": return "bg-purple-100 text-purple-800"
-      case "completed": return "bg-green-100 text-green-800"
-      case "cancelled": return "bg-red-100 text-red-800"
-      default: return "bg-gray-100 text-gray-800"
+      case "confirmed": return "bg-blue-100 text-blue-700 border-blue-200 hover:bg-blue-200"
+      case "pending": return "bg-yellow-100 text-yellow-700 border-yellow-200 hover:bg-yellow-200"
+      case "in-progress": return "bg-purple-100 text-purple-700 border-purple-200 hover:bg-purple-200"
+      case "completed": return "bg-green-100 text-green-700 border-green-200 hover:bg-green-200"
+      case "cancelled": return "bg-red-100 text-red-700 border-red-200 hover:bg-red-200"
+      default: return "bg-gray-100 text-gray-700 border-gray-200 hover:bg-gray-200"
     }
   }
 
@@ -409,21 +419,31 @@ export default function BookingsPage() {
                             </td>
                             <td className="py-3 px-4 text-sm text-foreground">{booking.makeAndModel}</td>
                             <td className="py-3 px-4">
-                              <select
-                                value={booking.status}
-                                onClick={(e) => e.stopPropagation()}
-                                onChange={(e) => {
-                                  e.stopPropagation();
-                                  if(bookingId) handleStatusChange(bookingId, e.target.value as Booking["status"])
-                                }}
-                                className={`px-3 py-1 rounded-full text-xs font-medium border-0 cursor-pointer ${getStatusColor(booking.status)}`}
-                              >
-                                <option value="pending">Pending</option>
-                                <option value="confirmed">Confirmed</option>
-                                <option value="in-progress">In Progress</option>
-                                <option value="completed">Completed</option>
-                                <option value="cancelled">Cancelled</option>
-                              </select>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <button
+                                    onClick={(e) => e.stopPropagation()}
+                                    className={`inline-flex items-center justify-between w-[120px] px-3 py-1.5 rounded-full text-xs font-semibold border transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1 ${getStatusColor(booking.status)}`}
+                                  >
+                                    <span className="capitalize truncate">{booking.status}</span>
+                                    <ChevronDown className="w-3 h-3 ml-2 opacity-70 shrink-0" />
+                                  </button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="start" className="w-[120px]">
+                                  {["pending", "confirmed", "in-progress", "completed", "cancelled"].map((st) => (
+                                    <DropdownMenuItem
+                                      key={st}
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        if (bookingId) handleStatusChange(bookingId, st as Booking["status"])
+                                      }}
+                                      className="capitalize cursor-pointer text-xs py-2"
+                                    >
+                                      {st}
+                                    </DropdownMenuItem>
+                                  ))}
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                             </td>
                             <td className="py-3 px-4 flex gap-2">
                               <Button

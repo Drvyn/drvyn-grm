@@ -798,13 +798,14 @@ export default function JobCardPage() {
                 <Input
                   id="service-cost"
                   type="number"
-                  value={currentService.cost}
+                  value={currentService.cost || ""}
                   onChange={(e) =>
                     setCurrentService({
                       ...currentService,
                       cost: parseFloat(e.target.value) || 0,
                     })
                   }
+                  placeholder="0"
                 />
               </div>
               <div className="space-y-2">
@@ -812,13 +813,14 @@ export default function JobCardPage() {
                 <Input
                   id="service-tax"
                   type="number"
-                  value={currentService.taxPercent}
+                  value={currentService.taxPercent || ""}
                   onChange={(e) =>
                     setCurrentService({
                       ...currentService,
                       taxPercent: parseFloat(e.target.value) || 0,
                     })
                   }
+                  placeholder="0"
                 />
               </div>
             </div>
@@ -873,13 +875,14 @@ export default function JobCardPage() {
                 <Input
                   id="part-price"
                   type="number"
-                  value={currentPart.price}
+                  value={currentPart.price || ""}
                   onChange={(e) =>
                     setCurrentPart({
                       ...currentPart,
                       price: parseFloat(e.target.value) || 0,
                     })
                   }
+                  placeholder="0"
                 />
               </div>
               <div className="space-y-2">
@@ -887,13 +890,14 @@ export default function JobCardPage() {
                 <Input
                   id="part-tax"
                   type="number"
-                  value={currentPart.taxPercent}
+                  value={currentPart.taxPercent || ""}
                   onChange={(e) =>
                     setCurrentPart({
                       ...currentPart,
                       taxPercent: parseFloat(e.target.value) || 0,
                     })
                   }
+                  placeholder="0"
                 />
               </div>
             </div>
