@@ -100,7 +100,7 @@ useEffect(() => {
               <CardTitle className="text-sm font-medium text-muted-foreground">Total Revenue</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-foreground">${(totalRevenue / 1000).toFixed(1)}K</div>
+              <div className="text-3xl font-bold text-foreground">₹{(totalRevenue / 1000).toFixed(1)}K</div>
               <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
                 <TrendingUp className="w-3 h-3" />
                 +12% from last period
@@ -113,7 +113,7 @@ useEffect(() => {
               <CardTitle className="text-sm font-medium text-muted-foreground">Total Expenses</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-foreground">${(totalExpenses / 1000).toFixed(1)}K</div>
+              <div className="text-3xl font-bold text-foreground">₹{(totalExpenses / 1000).toFixed(1)}K</div>
               <p className="text-xs text-muted-foreground mt-1">Operating costs</p>
             </CardContent>
           </Card>
@@ -123,7 +123,7 @@ useEffect(() => {
               <CardTitle className="text-sm font-medium text-muted-foreground">Net Profit</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-green-600">${(profit / 1000).toFixed(1)}K</div>
+              <div className="text-3xl font-bold text-green-600">₹{(profit / 1000).toFixed(1)}K</div>
               <p className="text-xs text-muted-foreground mt-1">{profitMargin}% margin</p>
             </CardContent>
           </Card>
@@ -133,7 +133,7 @@ useEffect(() => {
               <CardTitle className="text-sm font-medium text-muted-foreground">Avg. Job Value</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-foreground">$285</div>
+              <div className="text-3xl font-bold text-foreground">₹285</div>
               <p className="text-xs text-muted-foreground mt-1">Per service</p>
             </CardContent>
           </Card>
@@ -281,7 +281,7 @@ useEffect(() => {
                   </div>
                   <div className="text-right">
                     <p className="text-sm font-semibold text-foreground flex items-center gap-1">
-                      <DollarSign className="w-4 h-4" />
+                      <span className="font-sans">₹</span>
                       {customer.spent}
                     </p>
                   </div>

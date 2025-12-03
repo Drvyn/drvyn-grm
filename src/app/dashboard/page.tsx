@@ -4,16 +4,7 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-  LineChart,
-  Line,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line,
 } from "recharts"
 import { Wrench, Users, FileText, TrendingUp, Clock, Calendar as CalendarIcon, Loader2, AlertCircle, Building } from "lucide-react"
 import DashboardLayout from "@/components/dashboard-layout"
@@ -30,6 +21,7 @@ export default function DashboardPage() {
   const router = useRouter()
   const { user } = useAuth()
   const [workshopName, setWorkshopName] = useState("")
+  const [userRole, setUserRole] = useState<string | null>(null)
   const [mounted, setMounted] = useState(false)
 
   // State for date range picker
@@ -48,15 +40,24 @@ export default function DashboardPage() {
   // --- Live Data Fetching ---
   const { data: stats, isLoading: isLoadingStats, isError: isErrorStats } = useDashboardStats(apiDateRange)
   const { data: activities, isLoading: isLoadingActivity, isError: isErrorActivity } = useRecentActivity()
-  const { data: chartData, isLoading: isLoadingCharts } = useDashboardChartData(30) // Always fetch last 30 days for trend
+  const { data: chartData, isLoading: isLoadingCharts } = useDashboardChartData(30) 
 
   useEffect(() => {
     setMounted(true)
-    if (!user) {
+    const role = localStorage.getItem("userRole")
+    setUserRole(role)
+    
+    // Redirect if not logged in (neither admin nor user)
+    if (!role && !user) {
       router.push("/")
       return
     }
-    setWorkshopName(user.displayName || "My Workshop")
+    
+    if (role === 'admin') {
+        setWorkshopName("Admin Dashboard")
+    } else {
+        setWorkshopName(user?.displayName || "My Workshop")
+    }
   }, [router, user])
 
   const setDateFilter = (type: "day" | "week" | "month" | "year") => {
@@ -78,7 +79,8 @@ export default function DashboardPage() {
     setFilterType("custom")
   }
 
-  if (!mounted || !user) {
+  // Allow rendering if mounted and (user exists OR role is admin)
+  if (!mounted || (!user && userRole !== 'admin')) {
     return null 
   }
 
@@ -95,7 +97,9 @@ export default function DashboardPage() {
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-8 gap-4">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
-          <p className="text-sm text-muted-foreground">{workshopName}</p>
+          <p className="text-sm text-muted-foreground">
+            {userRole === 'admin' ? "Global Overview" : workshopName}
+          </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <Button variant={filterType === "day" ? "default" : "outline"} onClick={() => setDateFilter("day")}>Today</Button>
@@ -142,43 +146,51 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Total Bookings</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                {userRole === 'admin' ? "Global Bookings" : "Total Bookings"}
+              </CardTitle>
             </CardHeader>
             <CardContent>
               {renderStat(stats?.bookings)}
-              <p className="text-xs text-muted-foreground mt-1">+12% from last period</p>
+              <p className="text-xs text-muted-foreground mt-1">Total volume</p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Completed Jobs</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                 {userRole === 'admin' ? "Global Completed Jobs" : "Completed Jobs"}
+              </CardTitle>
             </CardHeader>
             <CardContent>
               {renderStat(stats?.completed)}
               <p className="text-xs text-muted-foreground mt-1">
-                {stats?.bookings ? `${((stats.completed / stats.bookings) * 100).toFixed(0)}% rate` : "N/A"}
+                {stats?.bookings && stats.bookings > 0 ? `${((stats.completed / stats.bookings) * 100).toFixed(0)}% rate` : "N/A"}
               </p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Revenue</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                {userRole === 'admin' ? "Global Revenue" : "Revenue"}
+              </CardTitle>
             </CardHeader>
             <CardContent>
               {renderStat(stats?.revenue, "₹")}
-              <p className="text-xs text-muted-foreground mt-1">+8% from last period</p>
+              <p className="text-xs text-muted-foreground mt-1">From paid invoices</p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Pending Tasks</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                {userRole === 'admin' ? "Global Pending" : "Pending Tasks"}
+              </CardTitle>
             </CardHeader>
             <CardContent>
               {renderStat(stats?.pending)}
-              <p className="text-xs text-muted-foreground mt-1">Require attention</p>
+              <p className="text-xs text-muted-foreground mt-1">Active jobs</p>
             </CardContent>
           </Card>
         </div>
@@ -209,8 +221,8 @@ export default function DashboardPage() {
                     }}
                   />
                   <Legend />
-                  <Bar dataKey="bookings" fill="var(--chart-1)" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="completed" fill="var(--chart-2)" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="bookings" fill="var(--chart-1)" radius={[4, 4, 0, 0]} name="Bookings" />
+                  <Bar dataKey="completed" fill="var(--chart-2)" radius={[4, 4, 0, 0]} name="Completed" />
                 </BarChart>
                 )}
               </ResponsiveContainer>
@@ -247,6 +259,7 @@ export default function DashboardPage() {
                     stroke="var(--chart-1)"
                     strokeWidth={2}
                     dot={false}
+                    name="Revenue"
                   />
                 </LineChart>
                 )}
@@ -259,7 +272,7 @@ export default function DashboardPage() {
         <Card>
           <CardHeader>
             <CardTitle>Recent Activity</CardTitle>
-            <CardDescription>Latest bookings and updates</CardDescription>
+            <CardDescription>{userRole === 'admin' ? "Latest updates across all workshops" : "Latest bookings and updates"}</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">

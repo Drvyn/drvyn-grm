@@ -320,7 +320,10 @@ const showRedirectToast = () => {
         // Admin login SUCCESS
         localStorage.setItem("userRole", "admin")
         localStorage.setItem("userEmail", email)
-        localStorage.setItem("userId", "admin_static_user_001") // Static ID for non-Firebase admin
+        localStorage.setItem("userId", "admin_static_user_001")
+        if (data.token) {
+            localStorage.setItem("adminToken", data.token)
+        }
         
         showCelebrationToast(data.message || "Admin login successful! 🚀")
         setIsRedirecting(true)

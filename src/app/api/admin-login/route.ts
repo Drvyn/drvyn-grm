@@ -5,12 +5,16 @@ export async function POST(req: Request) {
     const { email, password } = await req.json();  
     const adminEmail = process.env.ADMIN_EMAIL;
     const adminPassword = process.env.ADMIN_PASSWORD;
+    const adminToken = process.env.ADMIN_SECRET_TOKEN || "secret-admin-token"; // Ensure this matches backend
 
     if (email === adminEmail && password === adminPassword) {
-    
-      return NextResponse.json({ success: true, message: "Login successful!" });
+      // Return the token to the client to be stored
+      return NextResponse.json({ 
+        success: true, 
+        message: "Login successful!",
+        token: adminToken 
+      });
     } else {
-     
       return NextResponse.json(
         { success: false, message: "Incorrect admin email or password." },
         { status: 401 } 

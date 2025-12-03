@@ -12,13 +12,23 @@ const apiClient = async (
   token: string | null,
   options: RequestInit = {}
 ) => {
-  if (!token) {
+  const headers = new Headers(options.headers || {})
+  headers.set("Content-Type", "application/json")
+
+  // Check if we are in admin mode
+  const userRole = typeof window !== 'undefined' ? localStorage.getItem("userRole") : null;
+  
+  if (userRole === "admin") {
+    const adminToken = typeof window !== 'undefined' ? localStorage.getItem("adminToken") : null;
+    if (adminToken) {
+      headers.set("x-admin-token", adminToken);
+    }
+  } else if (token) {
+    headers.set("Authorization", `Bearer ${token}`)
+  } else {
+    // If not admin and no token, throw error (unless endpoint is public, which we assume none are here)
     throw new Error("No auth token provided.")
   }
-
-  const headers = new Headers(options.headers || {})
-  headers.set("Authorization", `Bearer ${token}`)
-  headers.set("Content-Type", "application/json")
 
   const response = await fetch(`${API_URL}/workshop${endpoint}`, {
     ...options,
@@ -203,6 +213,15 @@ export interface ChartDataPoint {
     revenue: number
 }
 
+export interface WorkshopStats {
+    workshop_id: string
+    name: string
+    email: string
+    total_bookings: number
+    revenue: number
+    pending_tasks: number
+}
+
 
 // --------------------
 // --- API Hooks ---
@@ -244,6 +263,17 @@ export const useRecentActivity = () => {
       return apiClient("/recent-activity", token)
     },
   })
+}
+
+// --- ADMIN HOOKS ---
+export const useAdminWorkshops = () => {
+    return useQuery<WorkshopStats[]>({
+        queryKey: ["adminWorkshops"],
+        queryFn: async () => {
+            // No user token needed for admin, handled by localStorage logic in apiClient
+            return apiClient("/admin/workshops", null)
+        }
+    })
 }
 
 export const useBookings = () => {
@@ -659,4 +689,15 @@ export const useDeleteInvoice = () => {
       toast.error(`Failed to delete invoice: ${error.message}`)
     },
   })
+}
+
+export const useAdminJobCards = (workshopId: string) => {
+    return useQuery<JobCard[]>({
+        queryKey: ["adminJobCards", workshopId],
+        queryFn: async () => {
+            // Admin token is handled automatically by apiClient based on localStorage
+            return apiClient(`/admin/workshops/${workshopId}/jobcards`, null)
+        },
+        enabled: !!workshopId
+    })
 }
