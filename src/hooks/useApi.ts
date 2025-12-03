@@ -701,3 +701,25 @@ export const useAdminJobCards = (workshopId: string) => {
         enabled: !!workshopId
     })
 }
+
+export interface ReportStats {
+    revenue_data: { month: string; revenue: number }[]
+    service_breakdown: { name: string; value: number }[]
+    customer_growth: { month: string; newCustomers: number }[]
+    top_customers: { name: string; spent: number; bookings: number }[]
+    performance: {
+        completion_rate: number
+        avg_job_value: number
+    }
+}
+
+export const useReports = () => {
+    const { getToken } = useAuth()
+    return useQuery<ReportStats>({
+        queryKey: ["reports"],
+        queryFn: async () => {
+            const token = await getToken()
+            return apiClient("/reports", token)
+        }
+    })
+}
