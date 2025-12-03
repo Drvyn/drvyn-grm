@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line,
 } from "recharts"
-import { Wrench, Users, FileText, TrendingUp, Clock, Calendar as CalendarIcon, Loader2, AlertCircle, Building } from "lucide-react"
+import { Clock, Calendar as CalendarIcon, Loader2, TrendingUp, AlertCircle, Building, FileText, Wrench, Users } from "lucide-react"
 import DashboardLayout from "@/components/dashboard-layout"
 import { Button } from "@/components/ui/button"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -268,35 +268,37 @@ export default function DashboardPage() {
           </Card>
         </div>
 
-        {/* Recent Activity */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Recent Activity</CardTitle>
-            <CardDescription>{userRole === 'admin' ? "Latest updates across all workshops" : "Latest bookings and updates"}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {isLoadingActivity && <Loader2 className="animate-spin" />}
-              {isErrorActivity && <p className="text-destructive">Failed to load activity.</p>}
-              {activities && activities.length === 0 && (
-                <p className="text-muted-foreground">No recent activity.</p>
-              )}
-              {activities?.map((activity, index) => (
-                <div key={activity.id || activity._id || index} className="flex items-start gap-4 pb-4 border-b border-border last:border-0">
-                  <div className="p-2 bg-primary/10 rounded-lg">
-                    <IconForActivity iconName={activity.icon} />
+        {/* Recent Activity - Hidden for Admin */}
+        {userRole !== 'admin' && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Recent Activity</CardTitle>
+              <CardDescription>Latest bookings and updates</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {isLoadingActivity && <Loader2 className="animate-spin" />}
+                {isErrorActivity && <p className="text-destructive">Failed to load activity.</p>}
+                {activities && activities.length === 0 && (
+                  <p className="text-muted-foreground">No recent activity.</p>
+                )}
+                {activities?.map((activity, index) => (
+                  <div key={activity.id || activity._id || index} className="flex items-start gap-4 pb-4 border-b border-border last:border-0">
+                    <div className="p-2 bg-primary/10 rounded-lg">
+                      <IconForActivity iconName={activity.icon} />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-foreground">{activity.title}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {activity.created_at ? format(parseISO(activity.created_at), "MMM d, h:mm a") : "Just now"}
+                      </p>
+                    </div>
                   </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-foreground">{activity.title}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {activity.created_at ? format(parseISO(activity.created_at), "MMM d, h:mm a") : "Just now"}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </DashboardLayout>
   )
