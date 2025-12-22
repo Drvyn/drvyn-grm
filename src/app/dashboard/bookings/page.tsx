@@ -499,7 +499,7 @@ export default function BookingsPage() {
             <CardContent className="p-6 bg-card rounded-b-lg max-h-[85vh] overflow-y-auto">
               <div className="space-y-6">
                 <div className="space-y-4">
-                  <h3 className="text-lg font-medium text-foreground border-b pb-2">Customer details</h3>
+                  <h3 className="text-lg font-bold text-blue-600 border-b pb-2">Customer details</h3>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="customerType">Customer type *</Label>
@@ -560,7 +560,7 @@ export default function BookingsPage() {
 
                 {/* Car details */}
                 <div className="space-y-4">
-                  <h3 className="text-lg font-medium text-foreground border-b pb-2">Car details</h3>
+                  <h3 className="text-lg font-bold text-blue-600 border-b pb-2">Car details</h3>
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="businessType">Business type *</Label>
@@ -643,7 +643,7 @@ export default function BookingsPage() {
                 
                 {/* Insurance details */}
                 <div className="space-y-4">
-                  <h3 className="text-lg font-medium text-foreground border-b pb-2">Insurance details</h3>
+                  <h3 className="text-lg font-bold text-blue-600 border-b pb-2">Insurance details</h3>
                   <Textarea
                     placeholder="Enter insurance policy details..."
                     value={formData.insuranceDetails}
@@ -653,7 +653,7 @@ export default function BookingsPage() {
 
                 {/* Additional details */}
                 <div className="space-y-4">
-                  <h3 className="text-lg font-medium text-foreground border-b pb-2">Additional details</h3>
+                  <h3 className="text-lg font-bold text-blue-600 border-b pb-2">Additional details</h3>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     
                     <div className="space-y-2">
