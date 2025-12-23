@@ -79,12 +79,12 @@ export default function DashboardPage() {
     setFilterType("custom")
   }
 
-  // Allow rendering if mounted and (user exists OR role is admin)
+
   if (!mounted || (!user && userRole !== 'admin')) {
     return null 
   }
 
-  // Helper to render stat card content
+
   const renderStat = (value: number | undefined, prefix = "") => {
     if (isLoadingStats) return <Skeleton className="h-8 w-24" />
     if (isErrorStats) return <span className="text-destructive text-sm">Error</span>

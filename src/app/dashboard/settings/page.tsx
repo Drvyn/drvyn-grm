@@ -59,7 +59,6 @@ export default function SettingsPage() {
     }
   }, [settings.darkMode, isMounted])
 
-  // Don't render until component is mounted to avoid hydration mismatch
   if (!isMounted) {
     return (
       <DashboardLayout>
