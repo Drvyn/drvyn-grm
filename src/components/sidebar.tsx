@@ -5,7 +5,6 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
   LayoutDashboard,
-  Calendar,
   Wrench,
   FileText,
   Users,
@@ -26,7 +25,6 @@ export function Sidebar({ userRole }: SidebarProps) {
 
   const menuItems = [
     { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard", roles: ["admin", "workshop"] },
-    { icon: Calendar, label: "Bookings", href: "/dashboard/bookings", roles: ["admin", "workshop"] },
     { icon: Wrench, label: "Job Cards", href: "/dashboard/job-cards", roles: ["admin", "workshop"] },
     { icon: FileText, label: "Invoices", href: "/dashboard/invoices", roles: ["admin", "workshop"] },
     { icon: Users, label: "Customers", href: "/dashboard/customers", roles: ["admin", "workshop"] },

@@ -147,7 +147,7 @@ export default function DashboardPage() {
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium text-muted-foreground">
-                {userRole === 'admin' ? "Global Bookings" : "Total Bookings"}
+                {userRole === 'admin' ? "Global Jobs" : "Total Jobs"}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -199,7 +199,7 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <Card>
             <CardHeader>
-              <CardTitle>Bookings Trend</CardTitle>
+              <CardTitle>Jobs Trend</CardTitle>
               <CardDescription>Past 30 days performance</CardDescription>
             </CardHeader>
             <CardContent>
@@ -221,7 +221,7 @@ export default function DashboardPage() {
                     }}
                   />
                   <Legend />
-                  <Bar dataKey="bookings" fill="var(--chart-1)" radius={[4, 4, 0, 0]} name="Bookings" />
+                  <Bar dataKey="bookings" fill="var(--chart-1)" radius={[4, 4, 0, 0]} name="Jobs" />
                   <Bar dataKey="completed" fill="var(--chart-2)" radius={[4, 4, 0, 0]} name="Completed" />
                 </BarChart>
                 )}
@@ -273,7 +273,7 @@ export default function DashboardPage() {
           <Card>
             <CardHeader>
               <CardTitle>Recent Activity</CardTitle>
-              <CardDescription>Latest bookings and updates</CardDescription>
+              <CardDescription>Latest jobs and updates</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">

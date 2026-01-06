@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -16,39 +16,35 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { 
-  Plus, 
-  Search, 
-  Wrench, 
-  Clock, 
-  X, 
-  Check, 
-  Loader2, 
-  ArrowRight,
-  Calendar as CalendarIcon,
-  Phone,
-  Edit2,
-  Trash2,
-  MoreVertical,
-  ChevronDown
+  Plus, Search, Wrench, Clock, X, Check, Loader2, Calendar as CalendarIcon,
+  Phone, Edit2, Trash2, MoreVertical, ChevronRight, FileText, AlertCircle,
+  Truck, RotateCcw, Fuel
 } from "lucide-react"
 import DashboardLayout from "@/components/dashboard-layout"
 import { useAuth } from "@/contexts/AppProviders"
 import { 
-  useJobCards, 
-  useSaveJobCard, 
-  useEmployees,
-  useDepartments,
-  useSaveEmployee,
-  useDeleteEmployee,
-  useSaveDepartment,
-  useSaveCustomer,
-  JobCardIn,
-  Employee,
-  EmployeeIn,
-  CustomerIn
+  useJobCards, useSaveJobCard, useEmployees, useDepartments,
+  useSaveEmployee, useDeleteEmployee, useSaveDepartment, useSaveCustomer,
+  JobCardIn, Employee, EmployeeIn, CustomerIn
 } from "@/hooks/useApi"
 import { format, parseISO } from "date-fns"
 
+// --- Helper for Status Styles ---
+const getStatusStyles = (status: string) => {
+  switch (status?.toLowerCase()) {
+    case "confirmed": return "bg-blue-100 text-blue-700 border-blue-200 hover:bg-blue-200"
+    case "pending": return "bg-yellow-100 text-yellow-700 border-yellow-200 hover:bg-yellow-200"
+    case "in-progress": return "bg-purple-100 text-purple-700 border-purple-200 hover:bg-purple-200"
+    case "waiting-parts": return "bg-orange-100 text-orange-700 border-orange-200 hover:bg-orange-200"
+    case "ready": return "bg-teal-100 text-teal-700 border-teal-200 hover:bg-teal-200"
+    case "completed": return "bg-green-100 text-green-700 border-green-200 hover:bg-green-200"
+    case "urgent": return "bg-red-100 text-red-700 border-red-200 hover:bg-red-200"
+    case "cancelled": return "bg-gray-100 text-gray-700 border-gray-200 hover:bg-gray-200"
+    default: return "bg-gray-100 text-gray-700 border-gray-200 hover:bg-gray-200"
+  }
+}
+
+// Types and initial states
 type JobCardFormData = {
   customerType: string
   customerName: string
@@ -178,7 +174,8 @@ export default function JobCardsPage() {
     (card) =>
       card.customer.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (card.id || card._id)?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      card.vehicle.toLowerCase().includes(searchTerm.toLowerCase()),
+      card.vehicle.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      card.carNumber?.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
   const handleAddNew = () => {
@@ -208,16 +205,12 @@ export default function JobCardsPage() {
       return;
     }
 
-    if (!formData.email || !formData.email.includes("@")) {
-      alert("Please enter a valid email address with '@'.");
-      return;
-    }
-
     const jobCardPayload: JobCardIn = {
       booking_id: `JC${Date.now()}`,
       customer: formData.customerName,
       phone: formData.phone,
       email: formData.email,
+      address: formData.address,
       vehicle: `${formData.makeYear} ${formData.makeAndModel}`,
       service: formData.bookingType,
       date: formData.date,
@@ -228,6 +221,32 @@ export default function JobCardsPage() {
       issues: [],
       workers: [formData.serviceAdvisor],
       photos: [],
+      status: "pending",
+
+      // Detailed Fields
+      customerType: formData.customerType,
+      taxNumber: formData.taxNumber,
+      drivingLicenseNumber: formData.drivingLicenseNumber,
+      drivingLicenseExpiry: formData.drivingLicenseExpiry ? formData.drivingLicenseExpiry.toISOString() : undefined,
+      businessType: formData.businessType,
+      subType: formData.subType,
+      carNumber: formData.carNumber,
+      makeAndModel: formData.makeAndModel,
+      fuelType: formData.fuelType,
+      transmissionType: formData.transmissionType,
+      engineNumber: formData.engineNumber,
+      vinNumber: formData.vinNumber,
+      variant: formData.variant,
+      makeYear: formData.makeYear,
+      color: formData.color,
+      runningPerDay: formData.runningPerDay,
+      insuranceDetails: formData.insuranceDetails,
+      serviceAdvisor: formData.serviceAdvisor,
+      bookingType: formData.bookingType,
+      department: formData.department,
+      customerRemark: formData.customerRemark,
+      odometer: formData.odometer,
+      fuelIndicator: formData.fuelIndicator
     }
 
     const customerPayload: CustomerIn = {
@@ -236,7 +255,6 @@ export default function JobCardsPage() {
       phone: formData.phone,
       address: formData.address || "",
     }
-
     saveCustomerMutation.mutate({ data: customerPayload });
 
     saveJobCardMutation.mutate(
@@ -272,29 +290,22 @@ export default function JobCardsPage() {
 
   const handleSaveEmployee = () => {
     const { firstName, designation, phone } = newEmployeeData
-    
     if (!designation || !firstName || !phone) {
       alert("Please fill in Employee designation, First name, and Phone number.")
       return
     }
-
     const apiPayload: EmployeeIn = {
         ...newEmployeeData,
         joiningDate: newEmployeeData.joiningDate ? newEmployeeData.joiningDate.toISOString() : undefined,
         exitDate: newEmployeeData.exitDate ? newEmployeeData.exitDate.toISOString() : undefined,
     }
-
     const empId = editingEmployee?.id || editingEmployee?._id
-
     saveEmployeeMutation.mutate(
       { data: apiPayload, id: empId ?? undefined },
       {
         onSuccess: (savedEmployee) => {
           const fullName = `${savedEmployee.firstName} ${savedEmployee.lastName || ''}`.trim()
-          if (!editingEmployee) {
-            handleFormChange("serviceAdvisor", fullName);
-          }
-          else if (editingEmployee && formData.serviceAdvisor === `${editingEmployee.firstName} ${editingEmployee.lastName || ''}`.trim()) {
+          if (!editingEmployee || formData.serviceAdvisor === `${editingEmployee.firstName} ${editingEmployee.lastName || ''}`.trim()) {
             handleFormChange("serviceAdvisor", fullName);
           }
           setNewEmployeeData(initialNewEmployeeData);
@@ -342,67 +353,141 @@ export default function JobCardsPage() {
 
   if (!mounted || !user) return null
 
+  // --- FULL STATISTICS CARDS ---
+  const stats = [
+    { label: "TOTAL JOBS", count: jobCards.length, icon: FileText, color: "text-blue-500", bgColor: "bg-blue-50" },
+    { label: "PENDING", count: jobCards.filter(j => j.status === 'pending').length, icon: Clock, color: "text-orange-500", bgColor: "bg-orange-50" },
+    { label: "IN PROGRESS", count: jobCards.filter(j => j.status === 'in-progress').length, icon: RotateCcw, color: "text-purple-500", bgColor: "bg-purple-50" },
+    { label: "WAITING PARTS", count: jobCards.filter(j => j.status === 'waiting-parts').length, icon: Truck, color: "text-yellow-600", bgColor: "bg-yellow-100" },
+    { label: "READY", count: jobCards.filter(j => j.status === 'ready').length, icon: Check, color: "text-teal-600", bgColor: "bg-teal-50" },
+    { label: "COMPLETED", count: jobCards.filter(j => j.status === 'completed').length, icon: Check, color: "text-green-600", bgColor: "bg-green-100" },
+    { label: "URGENT", count: jobCards.filter(j => j.status === 'urgent').length, icon: AlertCircle, color: "text-red-500", bgColor: "bg-red-50" },
+    { label: "CANCELLED", count: jobCards.filter(j => j.status === 'cancelled').length, icon: X, color: "text-gray-500", bgColor: "bg-gray-50" },
+  ]
+
   return (
     <DashboardLayout>
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
+      <div className="space-y-8">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold">Job Cards</h1>
-            <p className="text-muted-foreground">Active jobs and service history</p>
+            <h1 className="text-4xl font-extrabold tracking-tight">Job Cards</h1>
+            <p className="text-muted-foreground text-lg">Active jobs and detailed service history</p>
           </div>
-          <Button onClick={handleAddNew} className="bg-primary hover:bg-primary/90">
-            <Plus className="w-4 h-4 mr-2" />
-            New Job Card
-          </Button>
-        </div>
-
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle>Search Jobs</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex gap-2">
-              <div className="flex-1 relative">
-                <Search className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
+          <div className="flex items-center gap-3">
+             <div className="relative w-64 md:w-80">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search by customer, vehicle, or Job ID..."
-                  className="pl-10"
+                  placeholder="Search jobs..."
+                  className="pl-10 h-11 bg-white border-muted"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
-            </div>
-          </CardContent>
-        </Card>
+              <Button onClick={handleAddNew} className="bg-[#1e3a8a] hover:bg-[#1e3a8a]/90 h-11 px-6 text-white font-medium flex items-center gap-2">
+                <Plus className="w-5 h-5" />
+                New Job Card
+              </Button>
+          </div>
+        </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {isLoading ? (
-             <div className="col-span-full flex justify-center py-12">
-               <Loader2 className="w-8 h-8 animate-spin text-primary" />
-             </div>
-          ) : filteredJobCards.map((card) => (
-            <Card key={card.id || card._id} className="hover:shadow-lg transition-all border-l-4 border-l-primary/50 cursor-pointer" onClick={() => router.push(`/dashboard/job-cards/${card.id || card._id}`)}>
-              <CardHeader className="pb-3">
-                <div className="flex justify-between">
-                  <CardTitle className="text-lg font-bold">{(card.id || card._id || "").slice(-6).toUpperCase()}</CardTitle>
-                  <Badge variant="outline" className="bg-primary/5 text-primary">{card.service}</Badge>
+        {/* --- RENDER ALL 8 STATS --- */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
+          {stats.map((stat, idx) => (
+            <Card key={idx} className="border-none shadow-sm hover:shadow-md transition-shadow cursor-default bg-white">
+              <CardContent className="p-4 flex flex-col items-center justify-center text-center space-y-3">
+                <div className={`p-2 rounded-lg ${stat.bgColor}`}>
+                  <stat.icon className={`w-5 h-5 ${stat.color}`} />
                 </div>
-                <CardDescription className="font-medium">{card.customer}</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2 text-sm">
-                  <div className="flex items-center gap-2"><Wrench className="w-4 h-4" /> {card.vehicle}</div>
-                  <div className="flex items-center gap-2"><Clock className="w-4 h-4" /> {card.date} at {card.time}</div>
-                </div>
-                <div className="pt-3 border-t flex justify-end">
-                  <Button variant="ghost" size="sm">View & Edit <ArrowRight className="w-4 h-4 ml-1" /></Button>
+                <div className="space-y-1">
+                  <p className="text-[10px] font-bold text-muted-foreground tracking-wider uppercase">{stat.label}</p>
+                  <p className="text-xl font-bold text-foreground">{stat.count}</p>
                 </div>
               </CardContent>
             </Card>
           ))}
         </div>
+
+        <div className="space-y-4">
+          {isLoading ? (
+             <div className="flex justify-center py-20"><Loader2 className="w-10 h-10 animate-spin text-[#1e3a8a]" /></div>
+          ) : filteredJobCards.length > 0 ? (
+            filteredJobCards.map((card) => (
+              <div 
+                key={card.id || card._id} 
+                className="group relative bg-white border border-muted-foreground/10 rounded-2xl overflow-hidden hover:shadow-xl transition-all duration-300 flex flex-col md:flex-row cursor-pointer"
+                onClick={() => router.push(`/dashboard/job-cards/${card.id || card._id}`)}
+              >
+                <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#1e3a8a]" />
+                <div className="flex-1 p-6 flex flex-col md:flex-row items-start md:items-center gap-6 md:gap-12">
+                  <div className="w-full md:w-64 space-y-3">
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm font-bold text-[#1e3a8a]">#{(card.id || card._id || "").slice(-6).toUpperCase()}</span>
+                      <Badge variant="outline" className="text-[10px] uppercase">{card.service}</Badge>
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-foreground">{card.customer}</h3>
+                      <div className="flex items-center gap-2 text-muted-foreground mt-1">
+                        <Phone className="w-3.5 h-3.5" />
+                        <span className="text-sm">{card.phone}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 md:flex md:flex-1 gap-6 md:gap-12 w-full">
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Vehicle No</p>
+                      <div className="flex items-center gap-2">
+                        <Wrench className="w-4 h-4 text-muted-foreground" />
+                        <span className="text-sm font-semibold">{card.carNumber || "N/A"}</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground">{card.vehicle}</p>
+                    </div>
+
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Fuel</p>
+                      <div className="flex items-center gap-2">
+                        <Fuel className="w-4 h-4 text-muted-foreground" />
+                        <span className="text-sm font-semibold">{card.fuelType || "N/A"}</span>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Advisor</p>
+                      <div className="flex items-center gap-2 text-sm font-semibold">
+                         <FileText className="w-4 h-4 text-muted-foreground" />
+                         <span>{card.workers?.[0] || "Unassigned"}</span>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Date</p>
+                      <div className="flex items-center gap-2 text-sm font-semibold">
+                        <CalendarIcon className="w-4 h-4 text-muted-foreground" />
+                        <span>{card.date}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="w-full md:w-48 bg-muted/20 border-l border-muted-foreground/5 p-6 flex flex-col items-center justify-center space-y-3 group-hover:bg-[#1e3a8a]/5 transition-colors">
+                  <Badge className={`px-3 py-1 rounded-full text-xs font-bold uppercase border ${getStatusStyles(card.status || "pending")}`}>
+                    {card.status || "Pending"}
+                  </Badge>
+                  <div className="flex items-center gap-1 text-[#1e3a8a] text-xs font-bold hover:underline">
+                    View Details <ChevronRight className="w-4 h-4" />
+                  </div>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="flex flex-col items-center justify-center py-20 bg-white rounded-2xl border border-dashed border-muted-foreground/30">
+               <FileText className="w-12 h-12 text-muted-foreground/20 mb-4" />
+               <p className="text-muted-foreground font-medium">No job cards found matching your search.</p>
+            </div>
+          )}
+        </div>
       </div>
 
+      {/* 1. New Job Card Modal */}
       {showForm && (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-black/30 backdrop-blur-sm p-4 md:p-8">
           <Card className="max-w-6xl mx-auto shadow-2xl border-primary/20 w-full">
@@ -414,10 +499,10 @@ export default function JobCardsPage() {
             </CardHeader>
             <CardContent className="p-6 bg-card rounded-b-lg max-h-[85vh] overflow-y-auto">
               <div className="space-y-6">
-                {/* Customer details */}
                 <div className="space-y-4">
                   <h3 className="text-lg font-bold text-blue-600 border-b pb-2">Customer details</h3>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {/* Customer Fields... */}
                       <div className="space-y-2">
                         <Label htmlFor="customerType">Customer type *</Label>
                         <Select value={formData.customerType} onValueChange={(v) => handleFormChange("customerType", v)}>
@@ -475,10 +560,10 @@ export default function JobCardsPage() {
                   </div>
                 </div>
 
-                {/* Car details */}
                 <div className="space-y-4">
                   <h3 className="text-lg font-bold text-blue-600 border-b pb-2">Car details</h3>
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                      {/* Car Fields... */}
                       <div className="space-y-2">
                         <Label htmlFor="businessType">Business type *</Label>
                         <Input id="businessType" value="Car" readOnly disabled className="bg-muted/50" />
@@ -558,7 +643,6 @@ export default function JobCardsPage() {
                   </div>
                 </div>
                 
-                {/* Insurance details */}
                 <div className="space-y-4">
                   <h3 className="text-lg font-bold text-blue-600 border-b pb-2">Insurance details</h3>
                   <Textarea
@@ -568,11 +652,9 @@ export default function JobCardsPage() {
                   />
                 </div>
 
-                {/* Additional details */}
                 <div className="space-y-4">
                   <h3 className="text-lg font-bold text-blue-600 border-b pb-2">Additional details</h3>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    
                     <div className="space-y-2">
                       <Label htmlFor="serviceAdvisor">Service advisor *</Label>
                       <Button
@@ -654,7 +736,7 @@ export default function JobCardsPage() {
         </div>
       )}
 
-      {/* Select Employee Modal */}
+      {/* 2. Select Employee Modal */}
       <Dialog open={isSelectEmployeeOpen} onOpenChange={setIsSelectEmployeeOpen}>
         <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader className="flex-row items-center justify-between pr-8">
@@ -737,7 +819,7 @@ export default function JobCardsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Add/Edit Employee Modal */}
+      {/* 3. Add/Edit Employee Modal */}
       <Dialog open={isAddEmployeeOpen} onOpenChange={setIsAddEmployeeOpen}>
         <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader>
@@ -758,50 +840,24 @@ export default function JobCardsPage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="firstName">First name *</Label>
-                <Input
-                  id="firstName"
-                  value={newEmployeeData.firstName}
-                  onChange={(e) => handleNewEmployeeChange("firstName", e.target.value)}
-                  placeholder="First name"
-                />
+                <Input id="firstName" value={newEmployeeData.firstName} onChange={(e) => handleNewEmployeeChange("firstName", e.target.value)} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="lastName">Last name</Label>
-                <Input
-                  id="lastName"
-                  value={newEmployeeData.lastName}
-                  onChange={(e) => handleNewEmployeeChange("lastName", e.target.value)}
-                  placeholder="Last name"
-                />
+                <Input id="lastName" value={newEmployeeData.lastName} onChange={(e) => handleNewEmployeeChange("lastName", e.target.value)} />
               </div>
             </div>
             <div className="space-y-2">
               <Label htmlFor="phone">Phone number *</Label>
-              <Input
-                id="phone"
-                value={newEmployeeData.phone}
-                onChange={(e) => handleNewEmployeeChange("phone", e.target.value)}
-                placeholder="Phone number"
-              />
+              <Input id="phone" value={newEmployeeData.phone} onChange={(e) => handleNewEmployeeChange("phone", e.target.value)} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="email">Email address</Label>
-              <Input
-                id="email"
-                type="email"
-                value={newEmployeeData.email}
-                onChange={(e) => handleNewEmployeeChange("email", e.target.value)}
-                placeholder="Email address"
-              />
+              <Input id="email" type="email" value={newEmployeeData.email} onChange={(e) => handleNewEmployeeChange("email", e.target.value)} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="address">Address</Label>
-              <Input
-                id="address"
-                value={newEmployeeData.address}
-                onChange={(e) => handleNewEmployeeChange("address", e.target.value)}
-                placeholder="Address"
-              />
+              <Input id="address" value={newEmployeeData.address} onChange={(e) => handleNewEmployeeChange("address", e.target.value)} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="joiningDate">Joining date</Label>
@@ -813,13 +869,7 @@ export default function JobCardsPage() {
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar 
-                    mode="single" 
-                    selected={newEmployeeData.joiningDate} 
-                    onSelect={(d) => handleNewEmployeeChange("joiningDate", d)}
-                    disabled={(date) => date < new Date()}
-                    initialFocus 
-                  />
+                  <Calendar mode="single" selected={newEmployeeData.joiningDate} onSelect={(d) => handleNewEmployeeChange("joiningDate", d)} initialFocus />
                 </PopoverContent>
               </Popover>
             </div>
@@ -833,33 +883,17 @@ export default function JobCardsPage() {
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar 
-                    mode="single" 
-                    selected={newEmployeeData.exitDate} 
-                    onSelect={(d) => handleNewEmployeeChange("exitDate", d)}
-                    disabled={(date) => date < new Date()}
-                    initialFocus 
-                  />
+                  <Calendar mode="single" selected={newEmployeeData.exitDate} onSelect={(d) => handleNewEmployeeChange("exitDate", d)} initialFocus />
                 </PopoverContent>
               </Popover>
             </div>
             <div className="space-y-2">
               <Label htmlFor="salary">Salary per month</Label>
-              <Input
-                id="salary"
-                value={newEmployeeData.salary}
-                onChange={(e) => handleNewEmployeeChange("salary", e.target.value)}
-                placeholder="Salary per month"
-              />
+              <Input id="salary" value={newEmployeeData.salary} onChange={(e) => handleNewEmployeeChange("salary", e.target.value)} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="bankDetails">Bank details</Label>
-              <Input
-                id="bankDetails"
-                value={newEmployeeData.bankDetails}
-                onChange={(e) => handleNewEmployeeChange("bankDetails", e.target.value)}
-                placeholder="Bank details"
-              />
+              <Input id="bankDetails" value={newEmployeeData.bankDetails} onChange={(e) => handleNewEmployeeChange("bankDetails", e.target.value)} />
             </div>
           </div>
           <DialogFooter className="mt-6">
@@ -868,10 +902,7 @@ export default function JobCardsPage() {
               setNewEmployeeData(initialNewEmployeeData); 
               setEditingEmployee(null); 
             }}>Cancel</Button>
-            <Button 
-              onClick={handleSaveEmployee}
-              disabled={saveEmployeeMutation.isPending}
-            >
+            <Button onClick={handleSaveEmployee} disabled={saveEmployeeMutation.isPending}>
               {saveEmployeeMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
               Save Details
             </Button>
@@ -879,7 +910,7 @@ export default function JobCardsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Add Department Modal */}
+      {/* 4. Add Department Modal */}
       <Dialog open={isAddDepartmentOpen} onOpenChange={setIsAddDepartmentOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -887,19 +918,11 @@ export default function JobCardsPage() {
           </DialogHeader>
           <div className="space-y-2 py-4">
             <Label htmlFor="newDepartmentName">Department Name</Label>
-            <Input
-              id="newDepartmentName"
-              value={newItemName}
-              onChange={(e) => setNewItemName(e.target.value)}
-              placeholder="e.g., Detailing"
-            />
+            <Input id="newDepartmentName" value={newItemName} onChange={(e) => setNewItemName(e.target.value)} placeholder="e.g., Detailing" />
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => { setIsAddDepartmentOpen(false); setNewItemName(""); }}>Cancel</Button>
-            <Button 
-              onClick={handleSaveDepartment}
-              disabled={saveDepartmentMutation.isPending}
-            >
+            <Button onClick={handleSaveDepartment} disabled={saveDepartmentMutation.isPending}>
               {saveDepartmentMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
               Save Department
             </Button>

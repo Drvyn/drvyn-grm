@@ -15,7 +15,6 @@ const apiClient = async (
   const headers = new Headers(options.headers || {})
   headers.set("Content-Type", "application/json")
 
-  // Check if we are in admin mode
   const userRole = typeof window !== 'undefined' ? localStorage.getItem("userRole") : null;
   
   if (userRole === "admin") {
@@ -26,7 +25,6 @@ const apiClient = async (
   } else if (token) {
     headers.set("Authorization", `Bearer ${token}`)
   } else {
-    // If not admin and no token, throw error (unless endpoint is public, which we assume none are here)
     throw new Error("No auth token provided.")
   }
 
@@ -159,6 +157,7 @@ export interface JobCard extends MongoEntity {
   customer: string
   phone?: string
   email?: string
+  address?: string
   vehicle: string
   service: string
   date: string
@@ -170,8 +169,39 @@ export interface JobCard extends MongoEntity {
   photos: string[]
   signature?: string
   notes?: string
+  customerAssets?: string
+  workshopInstructions?: string
+  
+  // Detailed Fields
+  customerType?: string
+  taxNumber?: string
+  drivingLicenseNumber?: string
+  drivingLicenseExpiry?: string
+  businessType?: string
+  subType?: string
+  carNumber?: string
+  makeAndModel?: string
+  fuelType?: string
+  transmissionType?: string
+  engineNumber?: string
+  vinNumber?: string
+  variant?: string
+  makeYear?: string
+  color?: string
+  runningPerDay?: string
+  insuranceDetails?: string
+  serviceAdvisor?: string
+  bookingType?: string
+  department?: string
+  customerRemark?: string
+  odometer?: string
+  fuelIndicator?: number
+  
+  status?: string
+  created_at?: string
+  updated_at?: string
 }
-export type JobCardIn = Omit<JobCard, "id" | "_id" | "workshop_id">
+export type JobCardIn = Omit<JobCard, "id" | "_id" | "workshop_id" | "created_at" | "updated_at">
 
 export interface InvoiceItem {
     description: string
@@ -222,6 +252,29 @@ export interface WorkshopStats {
     pending_tasks: number
 }
 
+export interface JobCardStats {
+  total: number;
+  pending: number;
+  in_progress: number;
+  waiting_parts: number;
+  ready: number;
+  completed: number;
+  urgent: number;
+  cancelled: number;
+}
+
+export const useJobCardStats = () => {
+  const { getToken } = useAuth();
+  return useQuery<JobCardStats>({
+    queryKey: ["jobCardStats"],
+    queryFn: async () => {
+      const token = await getToken();
+      return apiClient("/jobcards/stats", token);
+    },
+    refetchInterval: 30000, 
+  });
+};
+
 
 // --------------------
 // --- API Hooks ---
@@ -265,12 +318,10 @@ export const useRecentActivity = () => {
   })
 }
 
-// --- ADMIN HOOKS ---
 export const useAdminWorkshops = () => {
     return useQuery<WorkshopStats[]>({
         queryKey: ["adminWorkshops"],
         queryFn: async () => {
-            // No user token needed for admin, handled by localStorage logic in apiClient
             return apiClient("/admin/workshops", null)
         }
     })
@@ -695,7 +746,6 @@ export const useAdminJobCards = (workshopId: string) => {
     return useQuery<JobCard[]>({
         queryKey: ["adminJobCards", workshopId],
         queryFn: async () => {
-            // Admin token is handled automatically by apiClient based on localStorage
             return apiClient(`/admin/workshops/${workshopId}/jobcards`, null)
         },
         enabled: !!workshopId

@@ -52,8 +52,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         ]
       : [
           { label: "Dashboard", icon: Wrench, href: "/dashboard" },
-          { label: "Bookings", icon: Clock, href: "/dashboard/bookings" },
-          { label: "Job Cards", icon: FileText, href: "/dashboard/job-cards" }, 
+          { label: "Job Cards", icon: Clock, href: "/dashboard/job-cards" }, 
           { label: "Invoices", icon: FileText, href: "/dashboard/invoices" },
           { label: "Customers", icon: Users, href: "/dashboard/customers" },
           { label: "Parts", icon: Package, href: "/dashboard/parts" }, 
