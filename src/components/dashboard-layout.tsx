@@ -4,7 +4,7 @@ import type React from "react"
 
 import { useState, useEffect } from "react"
 import { useRouter, usePathname } from "next/navigation" 
-import { Wrench, Users, FileText, Settings, LogOut, Menu, ChevronsLeft, Clock, BarChart3, Package } from "lucide-react"
+import { Wrench, Users, FileText, Settings, LogOut, Menu, ChevronsLeft, Clock, BarChart3, Package, ShoppingCart } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Sheet, SheetContent } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
@@ -55,7 +55,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           { label: "Job Cards", icon: Clock, href: "/dashboard/job-cards" }, 
           { label: "Invoices", icon: FileText, href: "/dashboard/invoices" },
           { label: "Customers", icon: Users, href: "/dashboard/customers" },
-          { label: "Parts", icon: Package, href: "/dashboard/parts" }, 
+          { label: "Parts", icon: Package, href: "/dashboard/parts" },
+          { label: "purchses", icon: ShoppingCart, href: "/dashboard/purchases" }, 
         ]
 
   // Reusable Navigation Content

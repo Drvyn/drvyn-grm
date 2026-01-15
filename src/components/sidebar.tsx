@@ -9,6 +9,7 @@ import {
   FileText,
   Users,
   Package,
+  ShoppingCart, // Import this
   BarChart3,
   Settings,
   ChevronDown,
@@ -26,9 +27,10 @@ export function Sidebar({ userRole }: SidebarProps) {
   const menuItems = [
     { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard", roles: ["admin", "workshop"] },
     { icon: Wrench, label: "Job Cards", href: "/dashboard/job-cards", roles: ["admin", "workshop"] },
+    { icon: ShoppingCart, label: "Purchases", href: "/dashboard/purchases", roles: ["admin", "workshop"] },
     { icon: FileText, label: "Invoices", href: "/dashboard/invoices", roles: ["admin", "workshop"] },
     { icon: Users, label: "Customers", href: "/dashboard/customers", roles: ["admin", "workshop"] },
-    { icon: Package, label: "Parts & Services", href: "/dashboard/parts", roles: ["admin", "workshop"] },
+    { icon: Package, label: "Parts Inventory", href: "/dashboard/parts", roles: ["admin", "workshop"] },
     { icon: BarChart3, label: "Reports", href: "/dashboard/reports", roles: ["admin"] },
     { icon: Settings, label: "Settings", href: "/dashboard/settings", roles: ["admin", "workshop"] },
   ]
@@ -48,12 +50,12 @@ export function Sidebar({ userRole }: SidebarProps) {
           <div className="flex items-center gap-2">
             <div className="bg-sidebar-primary p-2 rounded-lg">
               <div className="rounded-xl shadow-md">
-              <img
-                src="/favicon3.png"
-                alt="DrvynGRM Logo"
-                className="w-10 h-10" 
-              />
-            </div>
+                <img
+                  src="/favicon3.png"
+                  alt="DrvynGRM Logo"
+                  className="w-10 h-10" 
+                />
+              </div>
             </div>
             <span className="font-bold text-sidebar-foreground">DrvynGRM</span>
           </div>
@@ -75,7 +77,7 @@ export function Sidebar({ userRole }: SidebarProps) {
       <nav className="p-4 space-y-2">
         {visibleItems.map((item) => {
           const Icon = item.icon
-          const isActive = pathname === item.href
+          const isActive = pathname === item.href || pathname.startsWith(item.href + "/")
           return (
             <Link
               key={item.href}
