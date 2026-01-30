@@ -9,10 +9,12 @@ import {
   FileText,
   Users,
   Package,
-  ShoppingCart, // Import this
+  ShoppingCart,
   BarChart3,
   Settings,
   ChevronDown,
+  ListTodo, // Import for To Do
+  Layers,   // Import for Services
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -26,7 +28,9 @@ export function Sidebar({ userRole }: SidebarProps) {
 
   const menuItems = [
     { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard", roles: ["admin", "workshop"] },
+    { icon: ListTodo, label: "To Do", href: "/dashboard/todo", roles: ["admin", "workshop"] }, // New Item
     { icon: Wrench, label: "Job Cards", href: "/dashboard/job-cards", roles: ["admin", "workshop"] },
+    { icon: Layers, label: "Services", href: "/dashboard/services", roles: ["admin", "workshop"] }, // New Item
     { icon: ShoppingCart, label: "Purchases", href: "/dashboard/purchases", roles: ["admin", "workshop"] },
     { icon: FileText, label: "Invoices", href: "/dashboard/invoices", roles: ["admin", "workshop"] },
     { icon: Users, label: "Customers", href: "/dashboard/customers", roles: ["admin", "workshop"] },

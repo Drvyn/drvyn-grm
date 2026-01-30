@@ -276,9 +276,41 @@ export const useJobCardStats = () => {
 };
 
 
-// --------------------
-// --- API Hooks ---
-// --------------------
+export const useApi = () => {
+  const { getToken } = useAuth()
+
+  // Helper to handle URL paths since apiClient already adds /workshop
+  const resolveEndpoint = (url: string) => {
+    return url.startsWith("/workshop") ? url.replace("/workshop", "") : url
+  }
+
+  return {
+    get: async (url: string) => {
+      const token = await getToken()
+      return apiClient(resolveEndpoint(url), token)
+    },
+    post: async (url: string, data: any) => {
+      const token = await getToken()
+      return apiClient(resolveEndpoint(url), token, {
+        method: "POST",
+        body: JSON.stringify(data),
+      })
+    },
+    put: async (url: string, data: any) => {
+      const token = await getToken()
+      return apiClient(resolveEndpoint(url), token, {
+        method: "PUT",
+        body: JSON.stringify(data),
+      })
+    },
+    delete: async (url: string) => {
+      const token = await getToken()
+      return apiClient(resolveEndpoint(url), token, {
+        method: "DELETE",
+      })
+    },
+  }
+}
 
 export const useDashboardStats = (dateRange: { from: string, to: string }) => {
   const { getToken } = useAuth()
