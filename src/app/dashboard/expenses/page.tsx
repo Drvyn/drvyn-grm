@@ -9,10 +9,10 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-// Changed to Dialog
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Plus, Trash, Search, Receipt } from "lucide-react"
+import { Plus, Trash, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 import { format } from "date-fns"
 
@@ -117,15 +117,18 @@ export default function ExpensesPage() {
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        <div className="flex justify-between items-center">
+        {/* Header */}
+        <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Expenses</h1>
+            <h1 className="text-3xl font-bold text-foreground">Expenses</h1>
             <p className="text-muted-foreground">Track purchases and operational costs.</p>
           </div>
 
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
-              <Button><Plus className="mr-2 h-4 w-4" /> Create Expense</Button>
+              <Button className="bg-primary hover:bg-primary/90">
+                <Plus className="mr-2 h-4 w-4" /> Create Expense
+              </Button>
             </DialogTrigger>
             <DialogContent className="max-w-[650px] max-h-[90vh] overflow-y-auto">
               <DialogHeader>
@@ -214,7 +217,7 @@ export default function ExpensesPage() {
 
                 <div className="grid grid-cols-2 gap-4 pt-4">
                     <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
-                    <Button onClick={handleSubmit}>Create Expense</Button>
+                    <Button onClick={handleSubmit} className="bg-primary hover:bg-primary/90">Create Expense</Button>
                 </div>
 
               </div>
@@ -223,50 +226,64 @@ export default function ExpensesPage() {
         </div>
 
         {/* Expense List */}
-        <div className="border rounded-lg bg-card">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Date</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Supplier</TableHead>
-                <TableHead>Items</TableHead>
-                <TableHead className="text-right">Total Amount</TableHead>
-                <TableHead className="w-[50px]"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {expenses.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                    No expenses recorded.
-                  </TableCell>
-                </TableRow>
+        <Card>
+          <CardHeader>
+            <CardTitle>Expense History</CardTitle>
+            <CardDescription>Recent expenses and operational costs ({expenses.length})</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              {loading ? (
+                <div className="flex justify-center p-8">
+                  <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                </div>
               ) : (
-                expenses.map((expense) => (
-                  <TableRow key={expense._id}>
-                    <TableCell>{format(new Date(expense.created_at), "dd MMM yyyy")}</TableCell>
-                    <TableCell>
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                            {expense.expense_type}
-                        </span>
-                    </TableCell>
-                    <TableCell className="font-medium">{expense.supplier}</TableCell>
-                    <TableCell className="max-w-[300px] truncate text-muted-foreground text-sm">
-                        {expense.items.map(i => i.description).join(", ")}
-                    </TableCell>
-                    <TableCell className="text-right font-bold">₹{totalAmount(expense.items)}</TableCell>
-                    <TableCell>
-                      <Button variant="ghost" size="icon" onClick={() => handleDelete(expense._id)}>
-                        <Trash className="h-4 w-4 text-red-500" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))
+                <Table>
+                  <TableHeader>
+                    <TableRow className="border-b border-border">
+                      <TableHead className="text-left py-3 px-4 font-medium text-muted-foreground">Date</TableHead>
+                      <TableHead className="text-left py-3 px-4 font-medium text-muted-foreground">Type</TableHead>
+                      <TableHead className="text-left py-3 px-4 font-medium text-muted-foreground">Supplier</TableHead>
+                      <TableHead className="text-left py-3 px-4 font-medium text-muted-foreground">Items</TableHead>
+                      <TableHead className="text-right py-3 px-4 font-medium text-muted-foreground">Total Amount</TableHead>
+                      <TableHead className="w-[50px]"></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {expenses.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                          No expenses recorded.
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      expenses.map((expense) => (
+                        <TableRow key={expense._id} className="border-b border-border hover:bg-muted/50 transition-colors">
+                          <TableCell className="py-3 px-4">{format(new Date(expense.created_at), "dd MMM yyyy")}</TableCell>
+                          <TableCell className="py-3 px-4">
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                  {expense.expense_type}
+                              </span>
+                          </TableCell>
+                          <TableCell className="py-3 px-4 font-medium text-foreground">{expense.supplier}</TableCell>
+                          <TableCell className="py-3 px-4 max-w-[300px] truncate text-muted-foreground text-sm">
+                              {expense.items.map(i => i.description).join(", ")}
+                          </TableCell>
+                          <TableCell className="py-3 px-4 text-right font-bold text-foreground">₹{totalAmount(expense.items)}</TableCell>
+                          <TableCell className="py-3 px-4">
+                            <Button variant="ghost" size="icon" onClick={() => handleDelete(expense._id)} className="hover:bg-destructive/10">
+                              <Trash className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
               )}
-            </TableBody>
-          </Table>
-        </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </DashboardLayout>
   )

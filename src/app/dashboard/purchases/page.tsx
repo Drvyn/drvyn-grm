@@ -181,8 +181,7 @@ export default function PurchasesPage() {
                 </div>
                 <h3 className="font-medium text-lg text-foreground">No purchases found</h3>
                 <p className="mb-1">Purchase history records will appear here.</p>
-                <p className="text-sm text-muted-foreground/80">Currently, new purchases are saved to the <strong>Purchase History</strong> backend.</p>
-            </div>
+                 </div>
           </CardContent>
         </Card>
 

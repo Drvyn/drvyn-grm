@@ -11,7 +11,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 import { Switch } from "@/components/ui/switch"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Search, Plus, MoreHorizontal, Edit, Trash } from "lucide-react"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Search, Plus, MoreHorizontal, Edit, Trash, Loader2 } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { toast } from "sonner"
 
@@ -42,7 +43,7 @@ export default function ServicesPage() {
     code: "",
     barcode: "",
     rate: 0,
-    taxPercent: 18, // Default tax
+    taxPercent: 18,
     sacCode: "",
     classification: "General",
     isTaxExclusive: false,
@@ -117,16 +118,19 @@ export default function ServicesPage() {
 
   return (
     <DashboardLayout>
-      <div className="p-6 space-y-6">
-        <div className="flex justify-between items-center">
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Services Catalog</h1>
+            <h1 className="text-3xl font-bold text-foreground">Services Catalog</h1>
             <p className="text-muted-foreground">Manage service rates, tax codes, and details.</p>
           </div>
 
           <Sheet open={isSheetOpen} onOpenChange={(open) => { setIsSheetOpen(open); if(!open) resetForm() }}>
             <SheetTrigger asChild>
-              <Button><Plus className="mr-2 h-4 w-4" /> Create Service</Button>
+              <Button className="bg-primary hover:bg-primary/90">
+                <Plus className="mr-2 h-4 w-4" /> Create Service
+              </Button>
             </SheetTrigger>
             <SheetContent className="w-[400px] sm:w-[540px] overflow-y-auto">
               <SheetHeader>
@@ -153,7 +157,6 @@ export default function ServicesPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="grid gap-2">
                     <Label htmlFor="rate">Rate (₹) *</Label>
-                    {/* Fixed NaN error here */}
                     <Input 
                       id="rate" 
                       type="number" 
@@ -166,7 +169,6 @@ export default function ServicesPage() {
                   </div>
                   <div className="grid gap-2">
                     <Label htmlFor="tax">Tax %</Label>
-                    {/* Fixed NaN error here */}
                     <Input 
                       id="tax" 
                       type="number" 
@@ -226,7 +228,7 @@ export default function ServicesPage() {
                   </div>
                 </div>
 
-                <Button onClick={handleSubmit} className="mt-4 w-full">
+                <Button onClick={handleSubmit} className="mt-4 w-full bg-primary hover:bg-primary/90">
                   {editingId ? "Save Changes" : "Create Service"}
                 </Button>
 
@@ -235,77 +237,98 @@ export default function ServicesPage() {
           </Sheet>
         </div>
 
-        {/* Filter Bar */}
-        <div className="flex items-center space-x-2">
-          <div className="relative flex-1 max-w-sm">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input 
-              placeholder="Search by name or code..." 
-              className="pl-8"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-        </div>
+        {/* Search Bar */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Search Services</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center space-x-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <Input 
+                  placeholder="Search by name or code..." 
+                  className="pl-10"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Data Table */}
-        <div className="border rounded-lg bg-card">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Service Name</TableHead>
-                <TableHead>Code</TableHead>
-                <TableHead>SAC</TableHead>
-                <TableHead>Classification</TableHead>
-                <TableHead className="text-right">Rate</TableHead>
-                <TableHead className="text-right">Tax %</TableHead>
-                <TableHead className="w-[50px]"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredServices.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                    No services found.
-                  </TableCell>
-                </TableRow>
+        <Card>
+          <CardHeader>
+            <CardTitle>Service List</CardTitle>
+            <CardDescription>All available services ({filteredServices.length})</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              {loading ? (
+                <div className="flex justify-center p-8">
+                  <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                </div>
               ) : (
-                filteredServices.map((service) => (
-                  <TableRow key={service._id}>
-                    <TableCell className="font-medium">
-                      {service.name}
-                      {service.isAdditionalService && (
-                        <span className="ml-2 text-[10px] bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded-full">Add-on</span>
-                      )}
-                    </TableCell>
-                    <TableCell>{service.code || "-"}</TableCell>
-                    <TableCell>{service.sacCode || "-"}</TableCell>
-                    <TableCell>{service.classification}</TableCell>
-                    <TableCell className="text-right">₹{service.rate}</TableCell>
-                    <TableCell className="text-right">{service.taxPercent}%</TableCell>
-                    <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleEdit(service)}>
-                            <Edit className="mr-2 h-4 w-4" /> Edit
-                          </DropdownMenuItem>
-                          <DropdownMenuItem className="text-red-600" onClick={() => handleDelete(service._id)}>
-                            <Trash className="mr-2 h-4 w-4" /> Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                ))
+                <Table>
+                  <TableHeader>
+                    <TableRow className="border-b border-border">
+                      <TableHead className="text-left py-3 px-4 font-medium text-muted-foreground">Service Name</TableHead>
+                      <TableHead className="text-left py-3 px-4 font-medium text-muted-foreground">Code</TableHead>
+                      <TableHead className="text-left py-3 px-4 font-medium text-muted-foreground">SAC</TableHead>
+                      <TableHead className="text-left py-3 px-4 font-medium text-muted-foreground">Classification</TableHead>
+                      <TableHead className="text-right py-3 px-4 font-medium text-muted-foreground">Rate</TableHead>
+                      <TableHead className="text-right py-3 px-4 font-medium text-muted-foreground">Tax %</TableHead>
+                      <TableHead className="w-[50px]"></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredServices.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                          No services found.
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      filteredServices.map((service) => (
+                        <TableRow key={service._id} className="border-b border-border hover:bg-muted/50 transition-colors">
+                          <TableCell className="py-3 px-4 font-medium text-foreground">
+                            {service.name}
+                            {service.isAdditionalService && (
+                              <span className="ml-2 text-[10px] bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded-full">Add-on</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="py-3 px-4">{service.code || "-"}</TableCell>
+                          <TableCell className="py-3 px-4">{service.sacCode || "-"}</TableCell>
+                          <TableCell className="py-3 px-4">{service.classification}</TableCell>
+                          <TableCell className="py-3 px-4 text-right">₹{service.rate}</TableCell>
+                          <TableCell className="py-3 px-4 text-right">{service.taxPercent}%</TableCell>
+                          <TableCell className="py-3 px-4">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-muted">
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => handleEdit(service)}>
+                                  <Edit className="mr-2 h-4 w-4" /> Edit
+                                </DropdownMenuItem>
+                                <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => handleDelete(service._id)}>
+                                  <Trash className="mr-2 h-4 w-4" /> Delete
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
               )}
-            </TableBody>
-          </Table>
-        </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </DashboardLayout>
   )

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Plus, Trash, Search, User, Fuel, Gauge, Settings2, Download, RefreshCw } from "lucide-react"
@@ -130,9 +131,9 @@ export default function VehiclesPage() {
       <div className="space-y-6">
         
         {/* Header Section */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Vehicles</h1>
+            <h1 className="text-3xl font-bold text-foreground">Vehicles</h1>
             <p className="text-muted-foreground">Manage fleet and customer vehicle specifications.</p>
           </div>
 
@@ -144,7 +145,9 @@ export default function VehiclesPage() {
 
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
-                <Button><Plus className="mr-2 h-4 w-4" /> Add Vehicle</Button>
+                <Button className="bg-primary hover:bg-primary/90">
+                    <Plus className="mr-2 h-4 w-4" /> Add Vehicle
+                </Button>
               </DialogTrigger>
               <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
@@ -281,7 +284,7 @@ export default function VehiclesPage() {
                       </div>
                   </div>
 
-                  <Button onClick={handleSubmit} className="w-full mt-4">Save Vehicle</Button>
+                  <Button onClick={handleSubmit} className="w-full mt-4 bg-primary hover:bg-primary/90">Save Vehicle</Button>
                 </div>
               </DialogContent>
             </Dialog>
@@ -289,95 +292,110 @@ export default function VehiclesPage() {
         </div>
 
         {/* Search Bar */}
-        <div className="flex items-center space-x-2">
-           <div className="relative flex-1 max-w-sm">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input 
-                placeholder="Search Reg No, VIN, or Customer..." 
-                className="pl-8" 
-                value={searchQuery} 
-                onChange={e => setSearchQuery(e.target.value)} 
-            />
-           </div>
-        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>Search Vehicles</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex gap-2">
+               <div className="relative flex-1">
+                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <Input 
+                    placeholder="Search Reg No, VIN, or Customer..." 
+                    className="pl-10" 
+                    value={searchQuery} 
+                    onChange={e => setSearchQuery(e.target.value)} 
+                />
+               </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Data Table */}
-        <div className="border rounded-lg bg-card">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Vehicle Info</TableHead>
-                <TableHead>Specs</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Owner</TableHead>
-                <TableHead className="w-[50px]"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtered.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                    {isImporting ? "Scanning Job Cards..." : "No vehicles found."}
-                  </TableCell>
-                </TableRow>
-              ) : (
-                filtered.map((v) => (
-                  <TableRow key={v._id}>
-                    <TableCell>
-                      <div className="flex flex-col">
-                        <span className="font-bold text-base uppercase">{v.carNumber}</span>
-                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                            <span>{v.make} {v.model}</span>
-                            {v.makeYear && <span>• {v.makeYear}</span>}
-                        </div>
-                        {v.vinNumber && <span className="text-[10px] text-muted-foreground/80">VIN: {v.vinNumber}</span>}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex flex-col gap-1 text-xs">
-                         <div className="flex items-center gap-2">
-                            <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 border capitalize">{v.fuelType || '-'}</span>
-                            <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 border capitalize">{v.transmissionType || '-'}</span>
-                         </div>
-                         {v.engineNumber && <span className="text-[10px] text-muted-foreground">Eng: {v.engineNumber}</span>}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                        <div className="space-y-1">
-                            {v.odometer && (
+        <Card>
+            <CardHeader>
+                <CardTitle>Vehicle List</CardTitle>
+                <CardDescription>All registered vehicles ({filtered.length})</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="border-b border-border">
+                        <TableHead className="text-left py-3 px-4 font-medium text-muted-foreground">Vehicle Info</TableHead>
+                        <TableHead className="text-left py-3 px-4 font-medium text-muted-foreground">Specs</TableHead>
+                        <TableHead className="text-left py-3 px-4 font-medium text-muted-foreground">Status</TableHead>
+                        <TableHead className="text-left py-3 px-4 font-medium text-muted-foreground">Owner</TableHead>
+                        <TableHead className="w-[50px]"></TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filtered.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                            {isImporting ? "Scanning Job Cards..." : "No vehicles found."}
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        filtered.map((v) => (
+                          <TableRow key={v._id} className="border-b border-border hover:bg-muted/50 transition-colors">
+                            <TableCell className="py-3 px-4">
+                              <div className="flex flex-col">
+                                <span className="font-bold text-base uppercase text-foreground">{v.carNumber}</span>
                                 <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                                    <Gauge className="h-3 w-3" /> {v.odometer} km
+                                    <span>{v.make} {v.model}</span>
+                                    {v.makeYear && <span>• {v.makeYear}</span>}
                                 </div>
-                            )}
-                            {v.fuelLevel !== undefined && (
-                                <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                                    <Fuel className="h-3 w-3" /> {v.fuelLevel}%
+                                {v.vinNumber && <span className="text-[10px] text-muted-foreground/80">VIN: {v.vinNumber}</span>}
+                              </div>
+                            </TableCell>
+                            <TableCell className="py-3 px-4">
+                              <div className="flex flex-col gap-1 text-xs">
+                                  <div className="flex items-center gap-2">
+                                    <span className="px-1.5 py-0.5 rounded bg-muted text-foreground border capitalize">{v.fuelType || '-'}</span>
+                                    <span className="px-1.5 py-0.5 rounded bg-muted text-foreground border capitalize">{v.transmissionType || '-'}</span>
+                                  </div>
+                                  {v.engineNumber && <span className="text-[10px] text-muted-foreground">Eng: {v.engineNumber}</span>}
+                              </div>
+                            </TableCell>
+                            <TableCell className="py-3 px-4">
+                                <div className="space-y-1">
+                                    {v.odometer && (
+                                        <div className="flex items-center gap-1 text-xs text-foreground">
+                                            <Gauge className="h-3 w-3" /> {v.odometer} km
+                                        </div>
+                                    )}
+                                    {v.fuelLevel !== undefined && (
+                                        <div className="flex items-center gap-1 text-xs text-foreground">
+                                            <Fuel className="h-3 w-3" /> {v.fuelLevel}%
+                                        </div>
+                                    )}
                                 </div>
-                            )}
-                        </div>
-                    </TableCell>
-                    <TableCell>
-                      {v.customerName ? (
-                        <div className="flex flex-col text-sm">
-                           <div className="flex items-center gap-2">
-                              <User className="h-3 w-3 text-muted-foreground" />
-                              <span>{v.customerName}</span>
-                           </div>
-                           <span className="text-xs text-muted-foreground pl-5">{v.customerPhone}</span>
-                        </div>
-                      ) : <span className="text-muted-foreground text-xs">-</span>}
-                    </TableCell>
-                    <TableCell>
-                      <Button variant="ghost" size="icon" onClick={() => handleDelete(v._id)}>
-                        <Trash className="h-4 w-4 text-red-500" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
+                            </TableCell>
+                            <TableCell className="py-3 px-4">
+                              {v.customerName ? (
+                                <div className="flex flex-col text-sm text-foreground">
+                                   <div className="flex items-center gap-2">
+                                      <User className="h-3 w-3 text-muted-foreground" />
+                                      <span>{v.customerName}</span>
+                                   </div>
+                                   <span className="text-xs text-muted-foreground pl-5">{v.customerPhone}</span>
+                                </div>
+                              ) : <span className="text-muted-foreground text-xs">-</span>}
+                            </TableCell>
+                            <TableCell className="py-3 px-4">
+                              <Button variant="ghost" size="icon" onClick={() => handleDelete(v._id)} className="hover:bg-destructive/10">
+                                <Trash className="h-4 w-4 text-destructive" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+            </CardContent>
+        </Card>
       </div>
     </DashboardLayout>
   )
