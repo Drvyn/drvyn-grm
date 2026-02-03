@@ -805,3 +805,52 @@ export const useReports = () => {
         }
     })
 }
+
+export interface WorkshopSettings extends MongoEntity {
+    workshop_id: string
+    businessName: string
+    phone: string
+    email: string
+    address: string
+    taxNumber: string
+    website: string
+    invoicePrefix: string
+    invoiceTerms: string
+    darkMode: boolean
+    notifications: boolean
+}
+
+export type WorkshopSettingsIn = Partial<Omit<WorkshopSettings, "id" | "_id" | "workshop_id">>
+
+export const useSettings = () => {
+  const { getToken } = useAuth()
+  return useQuery<WorkshopSettings>({
+    queryKey: ["settings"],
+    queryFn: async () => {
+      const token = await getToken()
+      return apiClient("/settings", token)
+    },
+  })
+}
+
+export const useSaveSettings = () => {
+  const queryClient = useQueryClient()
+  const { getToken } = useAuth()
+
+  return useMutation<WorkshopSettings, Error, WorkshopSettingsIn>({
+    mutationFn: async (settings) => {
+      const token = await getToken()
+      return apiClient("/settings", token, {
+        method: "PUT",
+        body: JSON.stringify(settings),
+      })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["settings"] })
+      toast.success("Settings saved successfully!")
+    },
+    onError: (error) => {
+      toast.error(`Failed to save settings: ${error.message}`)
+    },
+  })
+}

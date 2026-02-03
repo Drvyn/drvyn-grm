@@ -2,10 +2,11 @@
 
 import React, { createContext, useContext, useEffect, useState } from "react"
 import { getAuth, onAuthStateChanged, User, IdTokenResult } from "firebase/auth"
-import { auth } from "@/lib/firebase" // <-- CORRECTED IMPORT
+import { auth } from "@/lib/firebase" 
 import { Loader2 } from "lucide-react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { Toaster } from "@/components/ui/sonner" // Using sonner from your files
+import { Toaster } from "@/components/ui/sonner"
+import { ThemeProvider } from "@/components/theme-provider" // <-- Import ThemeProvider
 
 // --- Auth Context ---
 interface AuthContextType {
@@ -70,8 +71,15 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        {children}
-        <Toaster />
+        <ThemeProvider
+            attribute="class"
+            defaultTheme="system"
+            enableSystem
+            disableTransitionOnChange
+        >
+            {children}
+            <Toaster />
+        </ThemeProvider>
       </AuthProvider>
     </QueryClientProvider>
   )
